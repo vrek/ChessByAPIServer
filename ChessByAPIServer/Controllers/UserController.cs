@@ -1,62 +1,53 @@
 ﻿using ChessByAPIServer.DTOs;
-using ChessByAPIServer.Interfaces;
-using ChessByAPIServer.Mapper;
 using ChessByAPIServer.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ChessByAPIServer.Controllers;
 [ApiController]
 [Route("api/[controller]")]
-public class UserController : Controller, IUserController
+public class UserController : Controller//, IUserRepository
 {
     private readonly ChessDbContext _context;
+    private readonly IUserRepository _userRepo;
 
-    public UserController(ChessDbContext context)
+    public UserController(IUserRepository userRepo)
     {
-        _context = context;
+        _userRepo = userRepo;
     }
 
     [HttpGet]
     [Route("")]
-    public IActionResult GetAll()
+    public async Task<IActionResult> GetAll()
     {
-        List<UserDTO> users = _context.Users
-        .ToList()
-        .Select(u => u.ToUserDTO())
-        .ToList();
-        return Ok(users);
+        List<UserDTO> _users = await _userRepo.GetAll();
+        return Ok(_users);
     }
+
     [HttpGet("{id}")]
-    public IActionResult GetbyId(int id)
+    public async Task<IActionResult> GetbyId(int id)
     {
-        Models.User? user = _context.Users.Find(id);
-        if (user == null)
+        User _user = await _userRepo.GetbyId(id);
+        if (_user == null)
         {
             return NotFound();
         }
-        return Ok(user);
+        return Ok(_user);
     }
 
     [HttpPost]
-    public IActionResult AddUser([FromBody] User user)
+    public async Task<IActionResult> AddUser([FromBody] User user)
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest(ModelState);
+            return BadRequest(ModelState); // Handle validation here
         }
 
-        // Check if the user already exists based on email or username (optional)
-        User? existingUser = _context.Users.FirstOrDefault(u => u.Email == user.Email || u.UserName == user.UserName);
-        if (existingUser != null)
+        User result = await _userRepo.AddUser(user);
+        if (result == null)
         {
             return Conflict("User with the same email or username already exists.");
         }
 
-        // Add the new user to the database
-        _ = _context.Users.Add(user);
-        _ = _context.SaveChanges();
-
-        // Return the newly created user object, or you could return just the ID
-        return CreatedAtAction(nameof(GetbyId), new { id = user.Id }, user);
+        return CreatedAtAction(nameof(GetbyId), new { id = result.Id }, result);
     }
 }

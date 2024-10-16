@@ -2,37 +2,27 @@
 using ChessByAPIServer.Controllers;
 using ChessByAPIServer.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Moq;
 
 namespace ChessByAPI.Tests
 {
     public class UsersControllerTests
     {
         private readonly UserController _controller;
-        private readonly ChessDbContext _context;
-
-        private ChessDbContext GetInMemoryDbContext()
-        {
-            DbContextOptions<ChessDbContext> options = new DbContextOptionsBuilder<ChessDbContext>()
-                .UseInMemoryDatabase(Guid.NewGuid().ToString())
-                .Options;
-
-            return new ChessDbContext(options);
-        }
+        private readonly Mock<IUserRepository> _mockRepo;
 
         public UsersControllerTests()
         {
-            // Create an in-memory database context
+            // Create a mock IUserRepository
+            _mockRepo = new Mock<IUserRepository>();
 
-            _context = GetInMemoryDbContext();
-
-            // Create the controller instance
-            _controller = new UserController(_context);
+            // Inject the mock into the controller
+            _controller = new UserController(_mockRepo.Object);
         }
 
         // Test adding a new user
         [Fact]
-        public void AddUser_ShouldAddUserSuccessfully()
+        public async Task AddUser_ShouldAddUserSuccessfully()
         {
             // Arrange
             User newUser = new()
@@ -42,8 +32,11 @@ namespace ChessByAPI.Tests
                 Password = "password123"
             };
 
+            // Mock the AddUser method to return the new user
+            _ = _mockRepo.Setup(repo => repo.AddUser(It.IsAny<User>())).ReturnsAsync(newUser);
+
             // Act
-            CreatedAtActionResult? result = _controller.AddUser(newUser) as CreatedAtActionResult;
+            CreatedAtActionResult? result = await _controller.AddUser(newUser) as CreatedAtActionResult;
 
             // Assert
             Assert.NotNull(result);
@@ -51,37 +44,25 @@ namespace ChessByAPI.Tests
             User? addedUser = result.Value as User;
             Assert.NotNull(addedUser);
             Assert.Equal("testuser", addedUser.UserName);
-
-            // Ensure the user is actually in the database
-            User? userInDb = _context.Users.FirstOrDefault(u => u.Email == "testuser@example.com");
-            Assert.NotNull(userInDb);
-            Assert.Equal("testuser", userInDb.UserName);
         }
 
         // Test adding a duplicate user (by email or username)
         [Fact]
-        public void AddUser_ShouldReturnConflictIfUserExists()
+        public async Task AddUser_ShouldReturnConflictIfUserExists()
         {
             // Arrange
-            User existingUser = new()
+            User newUser = new()
             {
                 UserName = "existinguser",
                 Email = "existinguser@example.com",
                 Password = "password123"
             };
 
-            _ = _context.Users.Add(existingUser);
-            _ = _context.SaveChanges();
-
-            User newUser = new()
-            {
-                UserName = "existinguser", // Same username
-                Email = "newemail@example.com",
-                Password = "newpassword123"
-            };
+            // Mock the AddUser method to return null (indicating user already exists)
+            _ = _mockRepo.Setup(repo => repo.AddUser(It.IsAny<User>())).ReturnsAsync((User?)null);
 
             // Act
-            ConflictObjectResult? result = _controller.AddUser(newUser) as ConflictObjectResult;
+            ConflictObjectResult? result = await _controller.AddUser(newUser) as ConflictObjectResult;
 
             // Assert
             Assert.NotNull(result);
@@ -90,7 +71,7 @@ namespace ChessByAPI.Tests
 
         // Test adding a user with invalid model
         [Fact]
-        public void AddUser_ShouldReturnBadRequestForInvalidModel()
+        public async Task AddUser_ShouldReturnBadRequestForInvalidModel()
         {
             // Arrange
             User newUser = new()
@@ -103,7 +84,28 @@ namespace ChessByAPI.Tests
             _controller.ModelState.AddModelError("UserName", "Username is required");
 
             // Act
-            BadRequestObjectResult? result = _controller.AddUser(newUser) as BadRequestObjectResult;
+            BadRequestObjectResult? result = await _controller.AddUser(newUser) as BadRequestObjectResult;
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(400, result.StatusCode); // Bad Request (400)
+        }
+
+        [Fact]
+        public async Task AddUser_ShouldReturnBadRequestForBlankEmail()
+        {
+            // Arrange
+            User newUser = new()
+            {
+                UserName = "testuser",
+                Email = "",
+                Password = "password123"
+            };
+
+            _controller.ModelState.AddModelError("Email", "Email is required");
+
+            // Act
+            BadRequestObjectResult? result = await _controller.AddUser(newUser) as BadRequestObjectResult;
 
             // Assert
             Assert.NotNull(result);
@@ -111,3 +113,4 @@ namespace ChessByAPI.Tests
         }
     }
 }
+

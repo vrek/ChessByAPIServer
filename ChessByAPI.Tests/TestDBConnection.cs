@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ChessByAPI.Tests
 {
-    public class GameTests
+    public class DBContextTests
     {
         private ChessDbContext GetInMemoryDbContext()
         {

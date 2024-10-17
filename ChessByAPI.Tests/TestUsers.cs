@@ -4,113 +4,112 @@ using ChessByAPIServer.Models;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 
-namespace ChessByAPI.Tests
+namespace ChessByAPI.Tests;
+
+public class UsersControllerTests
 {
-    public class UsersControllerTests
+    private readonly UserController _controller;
+    private readonly Mock<IUserRepository> _mockRepo;
+
+    public UsersControllerTests()
     {
-        private readonly UserController _controller;
-        private readonly Mock<IUserRepository> _mockRepo;
+        // Create a mock IUserRepository
+        _mockRepo = new Mock<IUserRepository>();
 
-        public UsersControllerTests()
+        // Inject the mock into the controller
+        _controller = new UserController(_mockRepo.Object);
+    }
+
+    // Test adding a new user
+    [Fact]
+    public async Task AddUser_ShouldAddUserSuccessfully()
+    {
+        // Arrange
+        User newUser = new()
         {
-            // Create a mock IUserRepository
-            _mockRepo = new Mock<IUserRepository>();
+            UserName = "testuser",
+            Email = "testuser@example.com",
+            Password = "password123"
+        };
 
-            // Inject the mock into the controller
-            _controller = new UserController(_mockRepo.Object);
-        }
+        // Mock the AddUser method to return the new user
+        _ = _mockRepo.Setup(repo => repo.AddUser(It.IsAny<User>())).ReturnsAsync(newUser);
 
-        // Test adding a new user
-        [Fact]
-        public async Task AddUser_ShouldAddUserSuccessfully()
+        // Act
+        CreatedAtActionResult? result = await _controller.AddUser(newUser) as CreatedAtActionResult;
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(201, result.StatusCode); // Ensure it's Created (201)
+        User? addedUser = result.Value as User;
+        Assert.NotNull(addedUser);
+        Assert.Equal("testuser", addedUser.UserName);
+    }
+
+    // Test adding a duplicate user (by email or username)
+    [Fact]
+    public async Task AddUser_ShouldReturnConflictIfUserExists()
+    {
+        // Arrange
+        User newUser = new()
         {
-            // Arrange
-            User newUser = new()
-            {
-                UserName = "testuser",
-                Email = "testuser@example.com",
-                Password = "password123"
-            };
+            UserName = "existinguser",
+            Email = "existinguser@example.com",
+            Password = "password123"
+        };
 
-            // Mock the AddUser method to return the new user
-            _ = _mockRepo.Setup(repo => repo.AddUser(It.IsAny<User>())).ReturnsAsync(newUser);
+        // Mock the AddUser method to return null (indicating user already exists)
+        _ = _mockRepo.Setup(repo => repo.AddUser(It.IsAny<User>())).ReturnsAsync((User?)null);
 
-            // Act
-            CreatedAtActionResult? result = await _controller.AddUser(newUser) as CreatedAtActionResult;
+        // Act
+        ConflictObjectResult? result = await _controller.AddUser(newUser) as ConflictObjectResult;
 
-            // Assert
-            Assert.NotNull(result);
-            Assert.Equal(201, result.StatusCode); // Ensure it's Created (201)
-            User? addedUser = result.Value as User;
-            Assert.NotNull(addedUser);
-            Assert.Equal("testuser", addedUser.UserName);
-        }
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(409, result.StatusCode); // Conflict (409)
+    }
 
-        // Test adding a duplicate user (by email or username)
-        [Fact]
-        public async Task AddUser_ShouldReturnConflictIfUserExists()
+    // Test adding a user with invalid model
+    [Fact]
+    public async Task AddUser_ShouldReturnBadRequestForInvalidModel()
+    {
+        // Arrange
+        User newUser = new()
         {
-            // Arrange
-            User newUser = new()
-            {
-                UserName = "existinguser",
-                Email = "existinguser@example.com",
-                Password = "password123"
-            };
+            UserName = "", // Invalid empty username
+            Email = "invalidemail",
+            Password = "password123"
+        };
 
-            // Mock the AddUser method to return null (indicating user already exists)
-            _ = _mockRepo.Setup(repo => repo.AddUser(It.IsAny<User>())).ReturnsAsync((User?)null);
+        _controller.ModelState.AddModelError("UserName", "Username is required");
 
-            // Act
-            ConflictObjectResult? result = await _controller.AddUser(newUser) as ConflictObjectResult;
+        // Act
+        BadRequestObjectResult? result = await _controller.AddUser(newUser) as BadRequestObjectResult;
 
-            // Assert
-            Assert.NotNull(result);
-            Assert.Equal(409, result.StatusCode); // Conflict (409)
-        }
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(400, result.StatusCode); // Bad Request (400)
+    }
 
-        // Test adding a user with invalid model
-        [Fact]
-        public async Task AddUser_ShouldReturnBadRequestForInvalidModel()
+    [Fact]
+    public async Task AddUser_ShouldReturnBadRequestForBlankEmail()
+    {
+        // Arrange
+        User newUser = new()
         {
-            // Arrange
-            User newUser = new()
-            {
-                UserName = "", // Invalid empty username
-                Email = "invalidemail",
-                Password = "password123"
-            };
+            UserName = "testuser",
+            Email = "",
+            Password = "password123"
+        };
 
-            _controller.ModelState.AddModelError("UserName", "Username is required");
+        _controller.ModelState.AddModelError("Email", "Email is required");
 
-            // Act
-            BadRequestObjectResult? result = await _controller.AddUser(newUser) as BadRequestObjectResult;
+        // Act
+        BadRequestObjectResult? result = await _controller.AddUser(newUser) as BadRequestObjectResult;
 
-            // Assert
-            Assert.NotNull(result);
-            Assert.Equal(400, result.StatusCode); // Bad Request (400)
-        }
-
-        [Fact]
-        public async Task AddUser_ShouldReturnBadRequestForBlankEmail()
-        {
-            // Arrange
-            User newUser = new()
-            {
-                UserName = "testuser",
-                Email = "",
-                Password = "password123"
-            };
-
-            _controller.ModelState.AddModelError("Email", "Email is required");
-
-            // Act
-            BadRequestObjectResult? result = await _controller.AddUser(newUser) as BadRequestObjectResult;
-
-            // Assert
-            Assert.NotNull(result);
-            Assert.Equal(400, result.StatusCode); // Bad Request (400)
-        }
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(400, result.StatusCode); // Bad Request (400)
     }
 }
 

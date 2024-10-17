@@ -6,14 +6,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ChessByAPIServer;
 
-public class UserRepository : IUserRepository
+public class UserRepository(ChessDbContext context) : IUserRepository
 {
-    private readonly ChessDbContext _context;
-    public UserRepository(ChessDbContext context)
-    {
-        _context = context;
-    }
-    public async Task<User> AddUser([FromBody] User user)
+    private readonly ChessDbContext _context = context;
+
+    public async Task<User?> AddUser([FromBody] User user)
     {
         // Check if the user already exists based on email or username (optional)
         User? existingUser = await _context.Users

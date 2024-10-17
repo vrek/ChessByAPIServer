@@ -3,9 +3,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ChessByAPIServer;
 
-public class ChessDbContext : DbContext
+public class ChessDbContext(DbContextOptions<ChessDbContext> options) : DbContext(options)
 {
-    public ChessDbContext(DbContextOptions<ChessDbContext> options) : base(options) { }
 
     // DbSets for the models
     public DbSet<User> Users { get; set; }

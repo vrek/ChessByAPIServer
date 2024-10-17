@@ -12,8 +12,8 @@ public class UserDTO
 
     public string Email { get; set; } = string.Empty;
 
-    public virtual ICollection<Game> WhiteGames { get; set; } = new List<Game>(); // Correct initialization
-    public virtual ICollection<Game> BlackGames { get; set; } = new List<Game>(); // Correct initialization
+    public virtual ICollection<Game> WhiteGames { get; set; } = []; // Correct initialization
+    public virtual ICollection<Game> BlackGames { get; set; } = []; // Correct initialization
 }
 public class CreateUserDTO
 {

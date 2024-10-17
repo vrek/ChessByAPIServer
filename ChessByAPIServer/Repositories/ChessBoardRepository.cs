@@ -1,8 +1,8 @@
 ﻿using ChessByAPIServer.Models;
 
-namespace ChessByAPIServer;
+namespace ChessByAPIServer.Repositories;
 
-public class Initalizeboard
+public class ChessBoardRepository
 {
     public static void InitializeChessBoard(ChessDbContext context, Guid gameId)
     {

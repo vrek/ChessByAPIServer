@@ -2,21 +2,20 @@
 
 #nullable disable
 
-namespace ChessByAPIServer.Migrations
+namespace ChessByAPIServer.Migrations;
+
+/// <inheritdoc />
+public partial class MakeGameCollectionsNullable : Migration
 {
     /// <inheritdoc />
-    public partial class MakeGameCollectionsNullable : Migration
+    protected override void Up(MigrationBuilder migrationBuilder)
     {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
 
-        }
+    }
 
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
+    /// <inheritdoc />
+    protected override void Down(MigrationBuilder migrationBuilder)
+    {
 
-        }
     }
 }

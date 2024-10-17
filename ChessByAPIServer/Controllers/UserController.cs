@@ -5,15 +5,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace ChessByAPIServer.Controllers;
 [ApiController]
 [Route("api/[controller]")]
-public class UserController : Controller//, IUserRepository
+public class UserController(IUserRepository userRepo) : Controller//, IUserRepository
 {
     private readonly ChessDbContext _context;
-    private readonly IUserRepository _userRepo;
-
-    public UserController(IUserRepository userRepo)
-    {
-        _userRepo = userRepo;
-    }
+    private readonly IUserRepository _userRepo = userRepo;
 
     [HttpGet]
     [Route("")]

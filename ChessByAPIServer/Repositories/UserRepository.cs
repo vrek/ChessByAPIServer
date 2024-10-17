@@ -17,12 +17,15 @@ public class UserRepository : IUserRepository
     {
         // Check if the user already exists based on email or username (optional)
         User? existingUser = await _context.Users
-            .FirstOrDefaultAsync(u => u.Email == user.Email || u.UserName == user.UserName);
+            .FirstOrDefaultAsync(u => (u.Email == user.Email || u.UserName == user.UserName) && u.IsDeleted == false);
 
         if (existingUser != null)
         {
             return null;
         }
+        user.IsDeleted = false;
+        user.DateDeleted = null;
+
 
         // Add the new user to the database
         _ = await _context.Users.AddAsync(user);
@@ -41,5 +44,18 @@ public class UserRepository : IUserRepository
     {
         Models.User? user = await _context.Users.FindAsync(id);
         return user;
+    }
+    public async Task<bool> DeleteUser(int id)
+    {
+        int _Id = id;
+        User? _User = await GetbyId(_Id);
+        if (_User == null)
+        {
+            return false;
+        }
+        _User.IsDeleted = true;
+        _User.DateDeleted = DateTime.Now;
+        _ = await _context.SaveChangesAsync();
+        return true;
     }
 }

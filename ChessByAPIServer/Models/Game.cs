@@ -18,7 +18,7 @@ public class Game
     public DateTime StartTime { get; set; }
 
     //Entry for end time of play
-    public DateTime EndTime { get; set; }
+    public DateTime? EndTime { get; set; }
 
     // Navigation properties for the white and black players
     [ForeignKey("WhitePlayerId")]
@@ -28,8 +28,8 @@ public class Game
     public virtual User BlackPlayer { get; set; }
 
     // A collection of chess positions for the game
-    public virtual ICollection<ChessPosition> ChessPositions { get; set; }
+    public virtual ICollection<ChessPosition>? ChessPositions { get; set; }
 
     // A collection of moves for the game
-    public virtual ICollection<GameMove> GameMoves { get; set; }
+    public virtual ICollection<GameMove>? GameMoves { get; set; }
 }

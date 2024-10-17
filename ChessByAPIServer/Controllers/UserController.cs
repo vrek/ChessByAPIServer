@@ -50,4 +50,14 @@ public class UserController : Controller//, IUserRepository
 
         return CreatedAtAction(nameof(GetbyId), new { id = result.Id }, result);
     }
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteUser(int id)
+    {
+        bool isDeleted = await _userRepo.DeleteUser(id);
+        if (!isDeleted)
+        {
+            return NotFound();
+        }
+        return NoContent();
+    }
 }

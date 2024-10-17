@@ -15,6 +15,9 @@ public class User
     public string Password { get; set; }
 
     // Navigation properties for games played as White and Black
-    public virtual ICollection<Game> WhiteGames { get; set; } = new List<Game>(); // Correct initialization
-    public virtual ICollection<Game> BlackGames { get; set; } = new List<Game>(); // Correct initialization
+    public virtual ICollection<Game>? WhiteGames { get; set; } = new List<Game>(); // Correct initialization
+    public virtual ICollection<Game>? BlackGames { get; set; } = new List<Game>(); // Correct initialization
+
+    public bool IsDeleted { get; set; }
+    public DateTime? DateDeleted { get; set; }
 }

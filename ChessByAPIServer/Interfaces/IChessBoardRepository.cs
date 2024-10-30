@@ -2,5 +2,7 @@
 
 public interface IChessBoardRepository
 {
-    public void InitializeChessBoard(ChessDbContext context, Guid gameId);
+    public Task<bool> InitializeChessBoard(ChessDbContext context, Guid gameId);
+    public Task<string?> GetPieceAtPositionAsync(ChessDbContext context, Guid gameId, string position);
+    public Task<bool> MovePieceToPositionAsync(ChessDbContext context, Guid gameId, string piece, string position);
 }

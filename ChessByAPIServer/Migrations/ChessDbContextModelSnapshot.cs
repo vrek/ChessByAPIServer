@@ -37,7 +37,6 @@ namespace ChessByAPIServer.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("Piece")
-                        .IsRequired()
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
 

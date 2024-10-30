@@ -5,7 +5,6 @@ namespace ChessByAPIServer;
 
 public class ChessDbContext(DbContextOptions<ChessDbContext> options) : DbContext(options)
 {
-
     // DbSets for the models
     public DbSet<User> Users { get; set; }
     public DbSet<ChessPosition> ChessPositions { get; set; }
@@ -16,12 +15,17 @@ public class ChessDbContext(DbContextOptions<ChessDbContext> options) : DbContex
     {
         base.OnModelCreating(modelBuilder);
 
+        // Configuring the Game entity
+        _ = modelBuilder.Entity<Game>()
+            .HasKey(g => g.Id);
+
+        // Relationships and additional configurations
         // Each user can play as White in many games
         _ = modelBuilder.Entity<Game>()
             .HasOne(g => g.WhitePlayer)
             .WithMany(u => u.WhiteGames) // Reference the WhiteGames collection
             .HasForeignKey(g => g.WhitePlayerId)
-            .OnDelete(DeleteBehavior.Restrict);  // Avoid cascading deletes for players
+            .OnDelete(DeleteBehavior.Restrict); // Avoid cascading deletes for players
 
         // Each user can play as Black in many games
         _ = modelBuilder.Entity<Game>()
@@ -59,7 +63,4 @@ public class ChessDbContext(DbContextOptions<ChessDbContext> options) : DbContex
             .Property(m => m.MoveNotation)
             .HasMaxLength(10);
     }
-
-
 }
-

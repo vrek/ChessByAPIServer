@@ -4,8 +4,7 @@ namespace ChessByAPIServer.Models;
 
 public class GameMove
 {
-    [Key]
-    public int Id { get; set; }
+    [Key] public int Id { get; set; }
 
     // Game GUID that this move belongs to
     public Guid GameGuid { get; set; }

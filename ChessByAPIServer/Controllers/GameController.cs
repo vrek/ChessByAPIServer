@@ -3,70 +3,51 @@ using ChessByAPIServer.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ChessByAPIServer.Controllers;
+
 [Route("api/[controller]")]
 [ApiController]
 public class GameController(IGameRepository gameRepository) : ControllerBase
 {
     private readonly IGameRepository _gameRepository = gameRepository;
-
-    // GET: api/Game
-    [HttpGet]
-    public async Task<ActionResult<IEnumerable<Game>>> GetGames()
-    {
-        IEnumerable<Game> games = await _gameRepository.GetAllAsync();
-        return Ok(games);
-    }
-
+    
     // GET: api/Game/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<Game>> GetGame(Guid id)
     {
-        Game game = await _gameRepository.GetByIdAsync(id);
+        var game = await _gameRepository.GetByIdAsync(id);
 
-        if (game == null)
-        {
-            return NotFound();
-        }
+        if (game == null) return NotFound();
 
         return Ok(game);
     }
 
-    // POST: api/Game
-    [HttpPost]
-    public async Task<ActionResult<Game>> CreateGame(Game game)
+    // POST: api/Game/{whitePlayerId}/{blackPlayerId}
+    [HttpPost("{whitePlayerId}/{blackPlayerId}")]
+    public async Task<ActionResult<Game>> CreateGame(int whitePlayerId, int blackPlayerId)
     {
-        Game createdGame = await _gameRepository.AddAsync(game);
-        return CreatedAtAction(nameof(GetGame), new { id = createdGame.Id }, createdGame);
-    }
-
-    // PUT: api/Game/{id}
-    [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateGame(Guid id, Game game)
-    {
-        if (id != game.Id)
+        try
         {
-            return BadRequest();
-        }
+            // Use the repository to create a new game
+            var createdGame = await _gameRepository.CreateGameAsync(whitePlayerId, blackPlayerId);
 
-        if (!await _gameRepository.ExistsAsync(id))
+            // Return the created game with a 201 Created response
+            return CreatedAtAction(nameof(GetGame), new { id = createdGame.Id }, createdGame);
+        }
+        catch (ArgumentException ex)
         {
-            return NotFound();
+            // If a validation error occurs, return a 400 Bad Request with the error message
+            return BadRequest(ex.Message);
         }
-
-        await _gameRepository.UpdateAsync(game);
-        return NoContent();
-    }
-
-    // DELETE: api/Game/{id}
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteGame(Guid id)
-    {
-        if (!await _gameRepository.ExistsAsync(id))
+        catch (InvalidOperationException ex)
         {
-            return NotFound();
+            // Handle any invalid operation exceptions that may arise
+            return Conflict(ex.Message); // 409 Conflict if there's an issue with existing game rules
         }
-
-        await _gameRepository.DeleteAsync(id);
-        return NoContent();
+        catch (Exception ex)
+        {
+            // Handle any unexpected exceptions
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+        }
     }
+    
 }

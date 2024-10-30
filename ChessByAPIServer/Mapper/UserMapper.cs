@@ -9,10 +9,9 @@ public static class UserMapper
     {
         return new UserDTO { Id = userModel.Id, UserName = userModel.UserName, Email = userModel.Email };
     }
+
     public static User CreateUserfromUserDTO(this UserDTO user)
     {
         return new User { UserName = user.UserName, Email = user.Email };
-
     }
-
 }

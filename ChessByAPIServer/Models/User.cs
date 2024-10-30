@@ -5,8 +5,7 @@ namespace ChessByAPIServer.Models;
 public class User
 {
     // Primary key for the user entity
-    [Key]
-    public int Id { get; set; }
+    [Key] public int Id { get; set; }
 
     public string UserName { get; set; } = string.Empty;
 

@@ -1,15 +1,13 @@
 ﻿using ChessByAPIServer.Models;
-
+using ChessByAPIServer.Enum;
 namespace ChessByAPIServer.Interfaces;
 
 
 public interface IGameRepository
 {
-    Task<IEnumerable<Game>> GetAllAsync();
-    Task<Game> GetByIdAsync(Guid id);
-    Task<Game> AddAsync(Game game);
-    Task UpdateAsync(Game game);
-    Task DeleteAsync(Guid id);
-    Task<bool> ExistsAsync(Guid id);
-}
+    Task<Game?> GetByIdAsync(Guid id);
 
+    Task<bool> ExistsAsync(Guid id);
+    Task<Game> CreateGameAsync(int whitePlayerId, int blackPlayerId);
+    Task<List<Game>> GetGamesByPlayerIdAsync(int playerId, PlayerRole role = PlayerRole.All);
+}

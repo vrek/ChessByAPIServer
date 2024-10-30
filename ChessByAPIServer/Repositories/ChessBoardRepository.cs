@@ -1,95 +1,129 @@
-﻿using ChessByAPIServer.Models;
+﻿using ChessByAPIServer.Interfaces;
+using ChessByAPIServer.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace ChessByAPIServer.Repositories;
 
-public class ChessBoardRepository
+public class ChessBoardRepository : IChessBoardRepository
 {
-    public static void InitializeChessBoard(ChessDbContext context, Guid gameId)
+   public async Task<bool> InitializeChessBoard(ChessDbContext context, Guid gameId)
+{
+    // Define the starting positions of pieces for white and black
+    GeneratePieces(out var whitePieces, out var blackPieces);
+
+    // Generate all positions for the chessboard (A1 to H8)
+    var allPositions = GenerateAllPositions();
+
+    // List to store all chess positions to be added
+    List<ChessPosition> chessPositions = new List<ChessPosition>();
+
+    AddWhitePieces(gameId, whitePieces, chessPositions);
+
+    AddBlackPieces(gameId, blackPieces, chessPositions);
+    
+    GenerateEmptyPositions(gameId, whitePieces, blackPieces, allPositions, chessPositions);
+    
+    await AddAndSaveChanges(context, chessPositions);
+    return true;
+}
+
+private static async Task AddAndSaveChanges(ChessDbContext context, List<ChessPosition> chessPositions)
+{
+    context.ChessPositions.AddRange(chessPositions);
+    await context.SaveChangesAsync();
+}
+
+private static void GenerateEmptyPositions(Guid gameId, Dictionary<string, string> whitePieces, Dictionary<string, string> blackPieces,
+    List<string> allPositions, List<ChessPosition> chessPositions)
+{
+    HashSet<string> occupiedPositions = new HashSet<string>(whitePieces.Keys.Concat(blackPieces.Keys));
+    foreach (var position in allPositions)
     {
-        // Define the starting positions of pieces for white and black
-        Dictionary<string, string> whitePieces = new()
-        {
-            { "A1", "Rook" }, { "B1", "Knight" }, { "C1", "Bishop" }, { "D1", "Queen" },
-            { "E1", "King" }, { "F1", "Bishop" }, { "G1", "Knight" }, { "H1", "Rook" },
-            { "A2", "Pawn" }, { "B2", "Pawn" }, { "C2", "Pawn" }, { "D2", "Pawn" },
-            { "E2", "Pawn" }, { "F2", "Pawn" }, { "G2", "Pawn" }, { "H2", "Pawn" }
-        };
-
-        Dictionary<string, string> blackPieces = new()
-        {
-            { "A8", "Rook" }, { "B8", "Knight" }, { "C8", "Bishop" }, { "D8", "Queen" },
-            { "E8", "King" }, { "F8", "Bishop" }, { "G8", "Knight" }, { "H8", "Rook" },
-            { "A7", "Pawn" }, { "B7", "Pawn" }, { "C7", "Pawn" }, { "D7", "Pawn" },
-            { "E7", "Pawn" }, { "F7", "Pawn" }, { "G7", "Pawn" }, { "H7", "Pawn" }
-        };
-
-        // Generate all positions for the chessboard (A1 to H8)
-        List<string> allPositions = GenerateAllPositions();
-
-        // List to store all chess positions to be added
-        List<ChessPosition> chessPositions = [];
-
-        // Add white pieces
-        foreach (KeyValuePair<string, string> position in whitePieces)
+        if (!occupiedPositions.Contains(position))
         {
             chessPositions.Add(new ChessPosition
             {
                 GameId = gameId,
-                Position = position.Key,
-                IsEmpty = false,
-                Piece = position.Value
+                Position = position,
+                IsEmpty = true,
+                Piece = null
             });
         }
-
-        // Add black pieces
-        foreach (KeyValuePair<string, string> position in blackPieces)
-        {
-            chessPositions.Add(new ChessPosition
-            {
-                GameId = gameId,
-                Position = position.Key,
-                IsEmpty = false,
-                Piece = position.Value
-            });
-        }
-
-        // Add empty positions
-        HashSet<string> occupiedPositions = [.. whitePieces.Keys, .. blackPieces.Keys];
-        foreach (string position in allPositions)
-        {
-            if (!occupiedPositions.Contains(position))
-            {
-                chessPositions.Add(new ChessPosition
-                {
-                    GameId = gameId,
-                    Position = position,
-                    IsEmpty = true,
-                    Piece = null
-                });
-            }
-        }
-
-        // Add to the context and save changes
-        context.ChessPositions.AddRange(chessPositions);
-        _ = context.SaveChanges();
-    }
-
-    // Helper function to generate all board positions in algebraic notation (A1, A2, ..., H8)
-    private static List<string> GenerateAllPositions()
-    {
-        string[] rows = ["1", "2", "3", "4", "5", "6", "7", "8"];
-        string[] columns = ["A", "B", "C", "D", "E", "F", "G", "H"];
-
-        List<string> positions = [];
-        foreach (string? col in columns)
-        {
-            foreach (string? row in rows)
-            {
-                positions.Add($"{col}{row}");
-            }
-        }
-
-        return positions;
     }
 }
 
+private static void AddBlackPieces(Guid gameId, Dictionary<string, string> blackPieces, List<ChessPosition> chessPositions)
+{
+    foreach (var position in blackPieces)
+    {
+        chessPositions.Add(new ChessPosition
+        {
+            GameId = gameId,
+            Position = position.Key,
+            IsEmpty = false,
+            Piece = position.Value
+        });
+    }
+}
+
+private static void AddWhitePieces(Guid gameId, Dictionary<string, string> whitePieces, List<ChessPosition> chessPositions)
+{
+    foreach (var position in whitePieces)
+    {
+        chessPositions.Add(new ChessPosition
+        {
+            GameId = gameId,
+            Position = position.Key,
+            IsEmpty = false,
+            Piece = position.Value
+        });
+    }
+}
+
+private static void GeneratePieces(out Dictionary<string, string> whitePieces, out Dictionary<string, string> blackPieces)
+{
+    whitePieces = new()
+    {
+        { "a1", "Rook" }, { "b1", "Knight" }, { "c1", "Bishop" }, { "d1", "Queen" },
+        { "e1", "King" }, { "f1", "Bishop" }, { "g1", "Knight" }, { "h1", "Rook" },
+        { "a2", "Pawn" }, { "b2", "Pawn" }, { "c2", "Pawn" }, { "d2", "Pawn" },
+        { "e2", "Pawn" }, { "f2", "Pawn" }, { "g2", "Pawn" }, { "h2", "Pawn" }
+    };
+
+    blackPieces = new()
+    {
+        { "a8", "Rook" }, { "b8", "Knight" }, { "c8", "Bishop" }, { "d8", "Queen" },
+        { "e8", "King" }, { "f8", "Bishop" }, { "g8", "Knight" }, { "h8", "Rook" },
+        { "a7", "Pawn" }, { "b7", "Pawn" }, { "c7", "Pawn" }, { "d7", "Pawn" },
+        { "e7", "Pawn" }, { "f7", "Pawn" }, { "g7", "Pawn" }, { "h7", "Pawn" }
+    };
+}
+
+
+// Helper function to generate all board positions in algebraic notation (A1, A2, ..., H8)
+    private static List<string> GenerateAllPositions()
+    {
+        string[] rows = ["1", "2", "3", "4", "5", "6", "7", "8"];
+        string[] columns = ["a", "b", "c", "d", "e", "f", "g", "h"];
+
+        List<string> positions = [];
+        foreach (var col in columns)
+        foreach (var row in rows)
+            positions.Add($"{col}{row}");
+
+        return positions;
+    }
+
+    public async Task<string?> GetPieceAtPositionAsync(ChessDbContext context, Guid gameId, string position)
+    {
+        var chessPosition = await context.ChessPositions
+            .FirstOrDefaultAsync(cp => cp.GameId == gameId && cp.Position == position);
+
+        return chessPosition?.Piece;
+    }
+
+    public async Task<bool> MovePieceToPositionAsync(ChessDbContext context, Guid gameId, string piece, string position)
+    {
+        throw new NotImplementedException();
+    }
+}

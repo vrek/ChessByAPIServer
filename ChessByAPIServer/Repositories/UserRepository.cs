@@ -15,7 +15,7 @@ public class UserRepository : IUserRepository, IDisposable
         _context = context;
     }
 
-    public async Task<User?> AddUser([FromBody] User user)
+    public async Task<User?> AddUser([FromBody] User? user)
     {
         var existingUser = await _context.Users
             .FirstOrDefaultAsync(u => (u.Email == user.Email || u.UserName == user.UserName) && u.IsDeleted == false);

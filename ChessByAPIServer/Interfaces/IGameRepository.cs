@@ -1,7 +1,7 @@
 ﻿using ChessByAPIServer.Models;
 using ChessByAPIServer.Enum;
-namespace ChessByAPIServer.Interfaces;
 
+namespace ChessByAPIServer.Interfaces;
 
 public interface IGameRepository
 {

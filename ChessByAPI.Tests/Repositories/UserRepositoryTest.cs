@@ -49,13 +49,13 @@ public class UserRepositoryTest
     {
         var _context = GetInMemoryDbContext();
         UserRepository userRepository = new(_context);
-        User user1 = new()
+        User? user1 = new()
         {
             UserName = "testuser",
             Email = "email1@test.com",
             Password = "password123"
         };
-        User user2 = new()
+        User? user2 = new()
         {
             UserName = "testuser2",
             Email = "email2@test.com",

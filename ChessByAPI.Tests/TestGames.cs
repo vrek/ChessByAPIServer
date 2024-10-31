@@ -39,7 +39,6 @@ public class GameControllerTests
         return new ChessDbContext(options);
     }
 
-    
 
     // Test for GetGameById action
     [Fact]
@@ -110,13 +109,13 @@ public class GameControllerTests
     {
         var _context = GetInMemoryDbContext();
         UserRepository userRepository = new(_context);
-        User user1 = new()
+        User? user1 = new()
         {
             UserName = "testuser",
             Email = "email1@test.com",
             Password = "password123"
         };
-        User user2 = new()
+        User? user2 = new()
         {
             UserName = "testuser2",
             Email = "email2@test.com",
@@ -142,13 +141,13 @@ public class GameControllerTests
     {
         var _context = GetInMemoryDbContext();
         UserRepository userRepository = new(_context);
-        User user1 = new()
+        User? user1 = new()
         {
             UserName = "testuser",
             Email = "email1@test.com",
             Password = "password123"
         };
-        User user2 = new()
+        User? user2 = new()
         {
             UserName = "testuser2",
             Email = "email2@test.com",
@@ -178,14 +177,14 @@ public class GameControllerTests
         GameRepository gameRepo = new(_context);
 
         // Create two valid users
-        User user1 = new()
+        User? user1 = new()
         {
             UserName = "testuser",
             Email = "email1@test.com",
             Password = "password123"
         };
 
-        User user2 = new()
+        User? user2 = new()
         {
             UserName = "testuser2",
             Email = "email2@test.com",

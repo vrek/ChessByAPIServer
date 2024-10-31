@@ -28,7 +28,7 @@ public class UserController(IUserRepository userRepo) : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> AddUser([FromBody] User user)
+    public async Task<IActionResult> AddUser([FromBody] User? user)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 

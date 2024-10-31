@@ -40,7 +40,7 @@ public class UsersControllerTests
     public async Task AddUser_ShouldAddUserSuccessfully()
     {
         // Arrange
-        User newUser = new()
+        User? newUser = new()
         {
             UserName = "testuser",
             Email = "testuser@example.com",
@@ -66,7 +66,7 @@ public class UsersControllerTests
     public async Task AddUser_ShouldReturnConflictIfUserExists()
     {
         // Arrange
-        User newUser = new()
+        User? newUser = new()
         {
             UserName = "existinguser",
             Email = "existinguser@example.com",
@@ -89,7 +89,7 @@ public class UsersControllerTests
     public async Task AddUser_ShouldReturnBadRequestForInvalidModel()
     {
         // Arrange
-        User newUser = new()
+        User? newUser = new()
         {
             UserName = "", // Invalid empty username
             Email = "invalidemail",
@@ -110,7 +110,7 @@ public class UsersControllerTests
     public async Task AddUser_ShouldReturnBadRequestForBlankEmail()
     {
         // Arrange
-        User newUser = new()
+        User? newUser = new()
         {
             UserName = "testuser",
             Email = "",
@@ -141,13 +141,13 @@ public class UsersControllerTests
     {
         var _context = GetInMemoryDbContext();
         UserRepository userRepository = new(_context);
-        User user1 = new()
+        User? user1 = new()
         {
             UserName = "testuser",
             Email = "email1@test.com",
             Password = "password123"
         };
-        User user2 = new()
+        User? user2 = new()
         {
             UserName = "testuser2",
             Email = "email2@test.com",
@@ -168,13 +168,13 @@ public class UsersControllerTests
     {
         var _context = GetInMemoryDbContext();
         UserRepository userRepository = new(_context);
-        User user1 = new()
+        User? user1 = new()
         {
             UserName = "testuser",
             Email = "email1@test.com",
             Password = "password123"
         };
-        User user2 = new()
+        User? user2 = new()
         {
             UserName = "testuser2",
             Email = "email2@test.com",

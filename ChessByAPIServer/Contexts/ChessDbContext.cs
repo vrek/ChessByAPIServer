@@ -6,7 +6,7 @@ namespace ChessByAPIServer;
 public class ChessDbContext(DbContextOptions<ChessDbContext> options) : DbContext(options)
 {
     // DbSets for the models
-    public DbSet<User> Users { get; set; }
+    public DbSet<User?> Users { get; set; }
     public DbSet<ChessPosition> ChessPositions { get; set; }
     public DbSet<Game> Games { get; set; }
     public DbSet<GameMove> GameMoves { get; set; }

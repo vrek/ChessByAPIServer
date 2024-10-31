@@ -9,7 +9,7 @@ namespace ChessByAPIServer.Controllers;
 public class GameController(IGameRepository gameRepository) : ControllerBase
 {
     private readonly IGameRepository _gameRepository = gameRepository;
-    
+
     // GET: api/Game/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<Game>> GetGame(Guid id)
@@ -49,5 +49,4 @@ public class GameController(IGameRepository gameRepository) : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
         }
     }
-    
 }

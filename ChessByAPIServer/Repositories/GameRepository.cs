@@ -21,6 +21,11 @@ public class GameRepository(ChessDbContext context) : IGameRepository
         return game;
     }
 
+    public ChessDbContext GetChessDbContext()
+    {
+        return context;
+    }
+
     public async Task<bool> ExistsAsync(Guid id)
     {
         return await context.Games.AnyAsync(g => g.Id == id);

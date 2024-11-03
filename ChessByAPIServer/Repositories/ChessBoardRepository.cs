@@ -17,9 +17,11 @@ public class ChessBoardRepository : IChessBoardRepository
         // List to store all chess positions to be added
         List<ChessPosition> chessPositions = new();
 
-        AddWhitePieces(gameId, whitePieces, chessPositions);
-
-        AddBlackPieces(gameId, blackPieces, chessPositions);
+        // Add white pieces with color
+        AddPieces(gameId, whitePieces, chessPositions, "White");
+        
+        // Add black pieces with color
+        AddPieces(gameId, blackPieces, chessPositions, "Black");
 
         GenerateEmptyPositions(gameId, whitePieces, blackPieces, allPositions, chessPositions);
 
@@ -37,7 +39,7 @@ public class ChessBoardRepository : IChessBoardRepository
         Dictionary<string, string> blackPieces,
         List<string> allPositions, List<ChessPosition> chessPositions)
     {
-        HashSet<string> occupiedPositions = [..whitePieces.Keys.Concat(blackPieces.Keys)];
+        HashSet<string> occupiedPositions = new(whitePieces.Keys.Concat(blackPieces.Keys));
         foreach (var position in allPositions)
             if (!occupiedPositions.Contains(position))
                 chessPositions.Add(new ChessPosition
@@ -45,34 +47,46 @@ public class ChessBoardRepository : IChessBoardRepository
                     GameId = gameId,
                     Position = position,
                     IsEmpty = true,
-                    Piece = null
+                    Piece = null,
+                    PieceColor = null // No piece, no color
                 });
     }
-
-    private static void AddBlackPieces(Guid gameId, Dictionary<string, string> blackPieces,
-        List<ChessPosition> chessPositions)
+    
+    public static void AddPieces(Guid gameId, Dictionary<string, string> pieces,
+        List<ChessPosition> chessPositions, string pieceColor)
     {
-        foreach (var position in blackPieces)
+        foreach (var position in pieces)
             chessPositions.Add(new ChessPosition
             {
                 GameId = gameId,
                 Position = position.Key,
                 IsEmpty = false,
-                Piece = position.Value
+                Piece = position.Value,
+                PieceColor = pieceColor // Set the piece color
             });
     }
-
-    private static void AddWhitePieces(Guid gameId, Dictionary<string, string> whitePieces,
-        List<ChessPosition> chessPositions)
+    
+    public async Task<bool> UpdatePositionAsync(ChessDbContext context, Guid gameId, string position, string? newPiece, string? newPieceColor)
     {
-        foreach (var position in whitePieces)
-            chessPositions.Add(new ChessPosition
-            {
-                GameId = gameId,
-                Position = position.Key,
-                IsEmpty = false,
-                Piece = position.Value
-            });
+        // Find the specific position to update in the database
+        var targetPosition = await context.ChessPositions
+            .FirstOrDefaultAsync(cp => cp.GameId == gameId && cp.Position == position);
+
+        if (targetPosition == null)
+        {
+            // Position does not exist, return false to indicate failure
+            return false;
+        }
+
+        // Update the piece and IsEmpty status
+        targetPosition.Piece = newPiece;
+        targetPosition.PieceColor = newPieceColor; // Update the color as well
+        targetPosition.IsEmpty = newPiece == null;
+
+        // Save only the changes made to targetPosition
+        await context.SaveChangesAsync();
+
+        return true; // Indicate success
     }
 
     private static void GeneratePieces(out Dictionary<string, string> whitePieces,
@@ -95,14 +109,13 @@ public class ChessBoardRepository : IChessBoardRepository
         };
     }
 
-
-// Helper function to generate all board positions in algebraic notation (A1, A2, ..., H8)
+    // Helper function to generate all board positions in algebraic notation (A1, A2, ..., H8)
     private static List<string> GenerateAllPositions()
     {
-        string[] rows = ["1", "2", "3", "4", "5", "6", "7", "8"];
-        string[] columns = ["a", "b", "c", "d", "e", "f", "g", "h"];
+        string[] rows = { "1", "2", "3", "4", "5", "6", "7", "8" };
+        string[] columns = { "a", "b", "c", "d", "e", "f", "g", "h" };
 
-        List<string> positions = [];
+        List<string> positions = new();
         foreach (var col in columns)
         foreach (var row in rows)
             positions.Add($"{col}{row}");
@@ -117,9 +130,29 @@ public class ChessBoardRepository : IChessBoardRepository
 
         return chessPosition?.Piece;
     }
-
-    public async Task<bool> MovePieceToPositionAsync(ChessDbContext context, Guid gameId, string piece, string position)
+    
+    public async Task<string?> GetPieceColorAtPositionAsync(ChessDbContext context, Guid gameId, string position)
     {
-        throw new NotImplementedException();
+        var chessPosition = await context.ChessPositions
+            .FirstOrDefaultAsync(cp => cp.GameId == gameId && cp.Position == position);
+
+        return chessPosition?.PieceColor; // Return the piece color
+    }
+    
+    public async Task<List<ChessPosition>> GetAllPositionsAsync(ChessDbContext context, Guid gameId)
+    {
+        // Retrieve all positions for the specified gameId
+        var chessPositions = await context.ChessPositions
+            .Where(cp => cp.GameId == gameId)
+            .ToListAsync();
+
+        return chessPositions;
+    }
+    
+    public async Task<bool> IsSquareOccupied(ChessDbContext context, Guid gameId, string position)
+    {
+        var targetPosition = await context.ChessPositions
+            .FirstOrDefaultAsync(cp => cp.GameId == gameId && cp.Position == position);
+        return targetPosition != null && !targetPosition.IsEmpty;
     }
 }

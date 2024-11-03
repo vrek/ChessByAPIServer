@@ -304,78 +304,98 @@ public class GameRepositoryTest : IDisposable
         var positionsCount = gameWithPositions?.ChessPositions.Count ?? 0;
         Assert.Equal(64, positionsCount);
     }
-}
+        private async Task SeedDatabaseAsync(ChessDbContext context, Game game)
+    {
+        // Seed game
+        await context.Games.AddAsync(game);
+        await context.SaveChangesAsync();
 
-// [Fact]
-// public async Task GetGamesAsyncByPlayerID_ShouldReturnGamesWherePlayerIsBlack()
-// {
-//     // Arrange: Set up game data where player ID 2 is a black player
-//     var playerId = 2;
-//     Game game1 = new() { WhitePlayerId = 1, BlackPlayerId = playerId };
-//     Game game2 = new() { WhitePlayerId = 3, BlackPlayerId = playerId };
-//     Game game3 = new() { WhitePlayerId = playerId, BlackPlayerId = 4 }; // player as White
-//     await _context.Games.AddRangeAsync(game1, game2, game3);
-//     await _context.SaveChangesAsync();
-//
-//     // Act: Retrieve games where player ID is the black player
-//     var result = await _gameRepository.GetGamesAsyncByPlayerID(playerId);
-//
-//     // Assert: Only games where player is BlackPlayerId should be returned
-//     Assert.Contains(result, g => g.BlackPlayerId == playerId);
-//     Assert.DoesNotContain(result, g => g.WhitePlayerId == playerId && g.BlackPlayerId != playerId);
-// }
-//
-// [Fact]
-// public async Task GetGamesAsyncByPlayerID_ShouldReturnGamesWherePlayerIsEitherColor()
-// {
-//     // Arrange: Set up games where player 1 is both white and black in different games
-//     var playerId = 1;
-//     Game game1 = new() { WhitePlayerId = playerId, BlackPlayerId = 2 };
-//     Game game2 = new() { WhitePlayerId = 3, BlackPlayerId = playerId };
-//     await _context.Games.AddRangeAsync(game1, game2);
-//     await _context.SaveChangesAsync();
-//
-//     // Act: Retrieve games where player ID is either white or black
-//     var result = await _gameRepository.GetGamesAsyncByPlayerID(playerId);
-//
-//     // Assert: Both games where player is either WhitePlayerId or BlackPlayerId should be returned
-//     Assert.Equal(2, result.Count);
-//     Assert.Contains(result, g => g.WhitePlayerId == playerId);
-//     Assert.Contains(result, g => g.BlackPlayerId == playerId);
-// }
-//
-// [Fact]
-// public async Task GetGamesAsyncByPlayerID_ShouldReturnEmptyForNonExistentPlayer()
-// {
-//     // Arrange: Add sample games without involving player ID 999
-//     Game game1 = new() { WhitePlayerId = 1, BlackPlayerId = 2 };
-//     Game game2 = new() { WhitePlayerId = 3, BlackPlayerId = 4 };
-//     await _context.Games.AddRangeAsync(game1, game2);
-//     await _context.SaveChangesAsync();
-//
-//     // Act: Try to retrieve games for a non-existent player ID
-//     var invalidPlayerId = 999;
-//     var result = await _gameRepository.GetGamesAsyncByPlayerID(invalidPlayerId);
-//
-//     // Assert: Result should be empty for a non-existent player ID
-//     Assert.Empty(result);
-// }
-//
-// [Fact]
-// public async Task GetGamesAsyncByPlayerID_ShouldReturnEmptyForDeletedPlayer()
-// {
-//     // Arrange: Add a deleted player and associated games
-//     var playerId = 5;
-//     Game game1 = new() { WhitePlayerId = playerId, BlackPlayerId = 6 };
-//     Game game2 = new() { WhitePlayerId = 7, BlackPlayerId = playerId };
-//     User deletedPlayer = new() { Id = playerId, IsDeleted = true };
-//     await _context.Games.AddRangeAsync(game1, game2);
-//     await _context.Users.AddAsync(deletedPlayer);
-//     await _context.SaveChangesAsync();
-//
-//     // Act: Retrieve games where player ID is a deleted player
-//     var result = await _gameRepository.GetGamesAsyncByPlayerID(playerId);
-//
-//     // Assert: Result should be empty since the player is marked as deleted
-//     Assert.Empty(result);
-// }
+        // Seed initial positions
+        await context.ChessPositions.AddRangeAsync(new[]
+        {
+            new ChessPosition { GameId = game.Id, Position = "e2", Piece = "Pawn", PieceColor = "White", IsEmpty = false },
+            new ChessPosition { GameId = game.Id, Position = "e4", IsEmpty = true },
+            new ChessPosition { GameId = game.Id, Position = "f2", Piece = "Pawn", PieceColor = "White", IsEmpty = false },
+            new ChessPosition { GameId = game.Id, Position = "f4", IsEmpty = true }
+        });
+        await context.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task TakeMoveAsync_ValidMove_ReturnsTrue()
+    {
+        // Arrange
+        var game = new Game (Guid.NewGuid(), 1, 2);
+        using var context = GetInMemoryDbContext();
+        
+        await SeedDatabaseAsync(context, game);
+
+        // Act
+        var result = await _gameRepository.TakeMoveAsync(game, "e2", "e4");
+
+        // Assert
+        Assert.True(result);
+        var startPosition = await context.ChessPositions.FirstAsync(cp => cp.Position == "e2" && cp.GameId == game.Id);
+        var endPosition = await context.ChessPositions.FirstAsync(cp => cp.Position == "e4" && cp.GameId == game.Id);
+
+        Assert.True(startPosition.IsEmpty);
+        Assert.False(endPosition.IsEmpty);
+        Assert.Equal("Pawn", endPosition.Piece);
+        Assert.Equal("White", endPosition.PieceColor);
+    }
+
+    [Fact]
+    public async Task TakeMoveAsync_MoveFromEmptySquare_ReturnsFalse()
+    {
+        // Arrange
+        var game = new Game (Guid.NewGuid(), 1, 2);
+        using var context = GetInMemoryDbContext();
+        await SeedDatabaseAsync(context, game);
+
+        // Act
+        var result = await _gameRepository.TakeMoveAsync(game, "e3", "e4"); // "e3" is empty
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task TakeMoveAsync_InvalidMove_ReturnsFalse()
+    {
+        // Arrange
+        var game = new Game (Guid.NewGuid(), 1, 2);
+        using var context = GetInMemoryDbContext();
+        await SeedDatabaseAsync(context, game);
+
+        // Act
+        var result = await _gameRepository.TakeMoveAsync(game, "e2", "e5"); // Invalid move for a pawn
+
+        // Assert
+        Assert.False(result);
+    }
+    
+    [Fact]
+    public async Task TakeMoveAsync_MoveWithoutPieceColor_ReturnsFalse()
+    {
+        // Arrange
+        var game = new Game (Guid.NewGuid(), 1, 2);
+        using var context = GetInMemoryDbContext();
+
+        // Add a position without a color
+        await context.ChessPositions.AddAsync(new ChessPosition
+        {
+            GameId = game.Id,
+            Position = "e2",
+            Piece = "Pawn",
+            IsEmpty = false,
+            PieceColor = null // No color set
+        });
+        await context.SaveChangesAsync();
+
+        // Act
+        var result = await _gameRepository.TakeMoveAsync(game, "e2", "e4");
+
+        // Assert
+        Assert.False(result);
+    }
+}

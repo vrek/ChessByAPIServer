@@ -5,11 +5,22 @@ using PlayerRole = ChessByAPIServer.Enum.PlayerRole;
 
 namespace ChessByAPIServer.Repositories;
 
-public class GameRepository(ChessDbContext context) : IGameRepository
+public class GameRepository : IGameRepository
 {
+    private readonly GameRepository _gameRepository;
+    private readonly ChessBoardRepository _chessBoardRepository;
+    private readonly ChessDbContext _context;
+
+    public GameRepository(ChessDbContext context)
+    {
+        _context = context;
+        _gameRepository = new GameRepository(context);
+        _chessBoardRepository = new ChessBoardRepository();
+    }
+
     public async Task<Game?> GetByIdAsync(Guid id)
     {
-        var game = await context.Games
+        var game = await _context.Games
             .Include(g => g.WhitePlayer)
             .Include(g => g.BlackPlayer)
             .Include(g => g.ChessPositions)
@@ -23,12 +34,12 @@ public class GameRepository(ChessDbContext context) : IGameRepository
 
     public ChessDbContext GetChessDbContext()
     {
-        return context;
+        return _context;
     }
 
     public async Task<bool> ExistsAsync(Guid id)
     {
-        return await context.Games.AnyAsync(g => g.Id == id);
+        return await _context.Games.AnyAsync(g => g.Id == id);
     }
 
     public async Task<Game> CreateGameAsync(int whitePlayerId, int blackPlayerId)
@@ -47,8 +58,8 @@ public class GameRepository(ChessDbContext context) : IGameRepository
 
         // Generate a new game ID
         var gameGuid = Guid.NewGuid();
-        var whiteplayer = await context.Users.FirstOrDefaultAsync(u => u.Id == whitePlayerId);
-        var blackplayer = await context.Users.FirstOrDefaultAsync(u => u.Id == blackPlayerId);
+        var whiteplayer = await _context.Users.FirstOrDefaultAsync(u => u.Id == whitePlayerId);
+        var blackplayer = await _context.Users.FirstOrDefaultAsync(u => u.Id == blackPlayerId);
         // Create a new game instance using object initialization
         Game _game = new
         (
@@ -58,16 +69,16 @@ public class GameRepository(ChessDbContext context) : IGameRepository
         );
 
         // Add the new game to the context
-        _ = await context.Games.AddAsync(_game);
+        _ = await _context.Games.AddAsync(_game);
 
         // Save changes to the database
-        _ = await context.SaveChangesAsync();
+        _ = await _context.SaveChangesAsync();
 
         // Initialize the chessboard with the new game ID
         ChessBoardRepository boardRepository = new();
-        boardRepository.InitializeChessBoard(context, gameGuid);
+        boardRepository.InitializeChessBoard(_context, gameGuid);
 
-        await context.SaveChangesAsync();
+        await _context.SaveChangesAsync();
 
         // Return the newly created game
         return _game;
@@ -75,7 +86,7 @@ public class GameRepository(ChessDbContext context) : IGameRepository
 
     public async Task<List<Game>> GetGamesByPlayerIdAsync(int playerId, PlayerRole role = PlayerRole.All)
     {
-        IQueryable<Game> query = context.Games;
+        IQueryable<Game> query = _context.Games;
 
         // Filter based on the specified role
         if (role == PlayerRole.White)
@@ -93,13 +104,13 @@ public class GameRepository(ChessDbContext context) : IGameRepository
     private async Task ValidateUser(int playerId, string playerRole)
     {
         // Check if the player exists
-        var userExists = await context.Users
+        var userExists = await _context.Users
             .AnyAsync(u => u.Id == playerId);
 
         if (!userExists) throw new ArgumentException($"{playerRole} with ID {playerId} does not exist.");
 
         // Check if the user is deleted
-        var isDeleted = await context.Users
+        var isDeleted = await _context.Users
             .AnyAsync(u => u.Id == playerId && u.IsDeleted);
 
         if (isDeleted) throw new ArgumentException($"{playerRole} with ID {playerId} is deleted.");
@@ -108,8 +119,8 @@ public class GameRepository(ChessDbContext context) : IGameRepository
     public async Task<Dictionary<string, object?>> GetChessPositionsDict(Game game)
     {
         // Load ChessPositions if they are not loaded
-        if (!context.Entry(game).Collection(g => g.ChessPositions).IsLoaded)
-            await context.Entry(game).Collection(g => g.ChessPositions).LoadAsync();
+        if (!_context.Entry(game).Collection(g => g.ChessPositions).IsLoaded)
+            await _context.Entry(game).Collection(g => g.ChessPositions).LoadAsync();
         // Create a dictionary to hold position data
         var positionsData = game.ChessPositions
             .Select(cp => new
@@ -126,19 +137,30 @@ public class GameRepository(ChessDbContext context) : IGameRepository
     {
         var piece = await GetPieceAtPosition(game, startPosition);
         if (piece == null) return false;
+        MoveValidationRepository _moveValidationRepo = new MoveValidationRepository(game, _chessBoardRepository, _gameRepository);
+        bool validMove = await _moveValidationRepo.IsValidMove(piece, startPosition, endPosition);
+        if (!validMove)
+        {
+            return false;
+        }
 
-        //TODO Determine if endPosition is valid move
-        //TODO If move valid update DB with Move History
-        //TODO If move valid update ChessPositions with new positions
-        //TODO If all steps succeed return true, otherwise return false
-
-        throw new NotImplementedException();
+        
+        string? playerColor = await _chessBoardRepository.GetPieceColorAtPositionAsync(_context, game.Id, startPosition);
+        if (playerColor == null)
+        {
+            return false;
+        }
+        await _moveValidationRepo.AddMoveToDbAsync(startPosition, endPosition,playerColor);
+        await _chessBoardRepository.UpdatePositionAsync(_context, game.Id, endPosition, piece, playerColor);
+        await _chessBoardRepository.UpdatePositionAsync(_context, game.Id, startPosition);
+        
+        return true;
     }
 
     public async Task<string?> GetPieceAtPosition(Game game, string position)
     {
         ChessBoardRepository chessBoardRepository = new();
-        var piece = await chessBoardRepository.GetPieceAtPositionAsync(context, game.Id, position);
+        var piece = await chessBoardRepository.GetPieceAtPositionAsync(_context, game.Id, position);
         if (piece == null) return null;
         return piece;
     }

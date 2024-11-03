@@ -66,7 +66,7 @@ public class ChessBoardRepository : IChessBoardRepository
             });
     }
     
-    public async Task<bool> UpdatePositionAsync(ChessDbContext context, Guid gameId, string position, string? newPiece, string? newPieceColor)
+    public async Task<bool> UpdatePositionAsync(ChessDbContext context, Guid gameId, string position, string? newPiece = null, string? newPieceColor = null)
     {
         // Find the specific position to update in the database
         var targetPosition = await context.ChessPositions

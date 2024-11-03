@@ -1,5 +1,6 @@
 ﻿using ChessByAPIServer.Interfaces;
 using ChessByAPIServer.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace ChessByAPIServer.Repositories;
 
@@ -194,5 +195,56 @@ public class MoveValidationRepository : IMoveValidationRepository
     public async Task SetSquareOccupiedAsync(string square, string pieceType, string color)
     {
         await _board.UpdatePositionAsync(_gameRepository.GetChessDbContext(), _game.Id, square, pieceType, color);
+    }
+
+    public async Task AddMoveToDbAsync(string startPosition, string endPosition, string color)
+    {
+        var context = _gameRepository.GetChessDbContext();
+        var gameMove = new GameMove();
+        string piece = await _board.GetPieceAtPositionAsync(context, _game.Id, startPosition);
+        gameMove.GameGuid = _game.Id;
+        gameMove.MoveNumber = await GetMostRecentMoveNumberAsync(context, _game.Id) + 1;
+        gameMove.MoveNotation = await GetLongAlgebraicNotationAsync(context, piece,startPosition, endPosition, color);
+        context.GameMoves.Add(gameMove);
+        await context.SaveChangesAsync();
+    }
+    public async Task<string> GetLongAlgebraicNotationAsync(
+        ChessDbContext context,
+        string piece, 
+        string startPosition, 
+        string endPosition, 
+        string color
+      )
+    {
+        
+        // Check if there is an opponent's piece on the end position
+        var targetPosition = await context.ChessPositions
+            .FirstOrDefaultAsync(p => p.GameId == _game.Id && p.Position == endPosition);
+
+        bool isCapture = targetPosition != null && targetPosition.PieceColor != color;
+
+        // Construct the long algebraic notation
+        string moveNotation = piece.Substring(0, 1).ToUpper(); // Use the first letter for the piece
+
+        if (isCapture)
+        {
+            moveNotation += startPosition + "x" + endPosition;
+        }
+        else
+        {
+            moveNotation += startPosition + "-" + endPosition;
+        }
+
+        return moveNotation;
+    }
+    public async Task<int> GetMostRecentMoveNumberAsync(ChessDbContext context, Guid gameGuid)
+    {
+        var mostRecentMoveNumber = await context.GameMoves
+            .Where(move => move.GameGuid == gameGuid)
+            .OrderByDescending(move => move.MoveNumber)
+            .Select(move => move.MoveNumber)
+            .FirstOrDefaultAsync();
+
+        return mostRecentMoveNumber;
     }
 }

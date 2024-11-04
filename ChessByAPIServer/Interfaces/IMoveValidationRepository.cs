@@ -1,9 +1,11 @@
-﻿namespace ChessByAPIServer.Repositories;
+﻿using ChessByAPIServer.Enum;
+
+namespace ChessByAPIServer.Repositories;
 
 public interface IMoveValidationRepository
 {
-    Task<bool> IsValidMove(string piece, string start, string end, string color = null);
-    Task<bool> IsPawnMoveValid(string StartColumn, int StartRow, string EndColumn, int EndRow, string color = null);
+    Task<bool> IsValidMove(string piece, string start, string end, PlayerRole? color = null);
+    Task<bool> IsPawnMoveValid(string StartColumn, int StartRow, string EndColumn, int EndRow, PlayerRole color);
     bool IsKnightMoveValid(string StartColumn, int StartRow, string EndColumn, int EndRow);
     bool IsBishopMoveValid(string StartColumn, int StartRow, string EndColumn, int EndRow);
     bool IsRookMoveValid(string StartColumn, int StartRow, string EndColumn, int EndRow);

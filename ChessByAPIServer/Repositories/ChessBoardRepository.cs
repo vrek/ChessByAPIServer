@@ -1,4 +1,5 @@
-﻿using ChessByAPIServer.Interfaces;
+﻿using ChessByAPIServer.Enum;
+using ChessByAPIServer.Interfaces;
 using ChessByAPIServer.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -66,8 +67,9 @@ public class ChessBoardRepository : IChessBoardRepository
             });
     }
     
-    public async Task<bool> UpdatePositionAsync(ChessDbContext context, Guid gameId, string position, string? newPiece = null, string? newPieceColor = null)
+    public async Task<bool> UpdatePositionAsync(ChessDbContext context, Guid gameId, string position, string? newPiece = null, PlayerRole? newPlayerRole = null)
     {
+        var newPieceColor = newPlayerRole.ToString();
         // Find the specific position to update in the database
         var targetPosition = await context.ChessPositions
             .FirstOrDefaultAsync(cp => cp.GameId == gameId && cp.Position == position);
@@ -80,7 +82,7 @@ public class ChessBoardRepository : IChessBoardRepository
 
         // Update the piece and IsEmpty status
         targetPosition.Piece = newPiece;
-        targetPosition.PieceColor = newPieceColor; // Update the color as well
+        targetPosition.PieceColor = newPieceColor; 
         targetPosition.IsEmpty = newPiece == null;
 
         // Save only the changes made to targetPosition
@@ -131,12 +133,18 @@ public class ChessBoardRepository : IChessBoardRepository
         return chessPosition?.Piece;
     }
     
-    public async Task<string?> GetPieceColorAtPositionAsync(ChessDbContext context, Guid gameId, string position)
+    public async Task<PlayerRole?> GetPieceColorAtPositionAsync(ChessDbContext context, Guid gameId, string position)
     {
         var chessPosition = await context.ChessPositions
             .FirstOrDefaultAsync(cp => cp.GameId == gameId && cp.Position == position);
 
-        return chessPosition?.PieceColor; // Return the piece color
+        // Map the PieceColor string to the PlayerRole enum
+        return chessPosition?.PieceColor switch
+        {
+            "White" => PlayerRole.White,
+            "Black" => PlayerRole.Black,
+            _ => null // If there is no piece or the color is unknown
+        };
     }
     
     public async Task<List<ChessPosition>> GetAllPositionsAsync(ChessDbContext context, Guid gameId)

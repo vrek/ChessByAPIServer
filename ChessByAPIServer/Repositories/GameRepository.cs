@@ -7,14 +7,13 @@ namespace ChessByAPIServer.Repositories;
 
 public class GameRepository : IGameRepository
 {
-    private readonly GameRepository _gameRepository;
+
     private readonly ChessBoardRepository _chessBoardRepository;
     private readonly ChessDbContext _context;
 
     public GameRepository(ChessDbContext context)
     {
         _context = context;
-        _gameRepository = new GameRepository(context);
         _chessBoardRepository = new ChessBoardRepository();
     }
 
@@ -76,7 +75,7 @@ public class GameRepository : IGameRepository
 
         // Initialize the chessboard with the new game ID
         ChessBoardRepository boardRepository = new();
-        boardRepository.InitializeChessBoard(_context, gameGuid);
+        await boardRepository.InitializeChessBoard(_context, gameGuid);
 
         await _context.SaveChangesAsync();
 
@@ -133,24 +132,24 @@ public class GameRepository : IGameRepository
         return positionsData;
     }
 
-    public async Task<bool> TakeMoveAsync(Game game, string startPosition, string endPosition)
+    public async Task<bool> TakeMoveAsync(Game game, string startPosition, string endPosition, PlayerRole? playerRole)
     {
-        var piece = await GetPieceAtPosition(game, startPosition);
+        var piece = await _chessBoardRepository.GetPieceAtPositionAsync(_context, game.Id, startPosition);
         if (piece == null) return false;
-        MoveValidationRepository _moveValidationRepo = new MoveValidationRepository(game, _chessBoardRepository, _gameRepository);
-        bool validMove = await _moveValidationRepo.IsValidMove(piece, startPosition, endPosition);
+        MoveValidationRepository _moveValidationRepo = new MoveValidationRepository(game, _chessBoardRepository, this);
+        bool validMove = await _moveValidationRepo.IsValidMove(piece, startPosition, endPosition, playerRole);
         if (!validMove)
         {
             return false;
         }
 
         
-        string? playerColor = await _chessBoardRepository.GetPieceColorAtPositionAsync(_context, game.Id, startPosition);
+        PlayerRole? playerColor = await _chessBoardRepository.GetPieceColorAtPositionAsync(_context, game.Id, startPosition);
         if (playerColor == null)
         {
             return false;
         }
-        await _moveValidationRepo.AddMoveToDbAsync(startPosition, endPosition,playerColor);
+        await _moveValidationRepo.AddMoveToDbAsync(startPosition, endPosition,playerColor.ToString());
         await _chessBoardRepository.UpdatePositionAsync(_context, game.Id, endPosition, piece, playerColor);
         await _chessBoardRepository.UpdatePositionAsync(_context, game.Id, startPosition);
         
@@ -159,8 +158,8 @@ public class GameRepository : IGameRepository
 
     public async Task<string?> GetPieceAtPosition(Game game, string position)
     {
-        ChessBoardRepository chessBoardRepository = new();
-        var piece = await chessBoardRepository.GetPieceAtPositionAsync(_context, game.Id, position);
+        
+        var piece = await _chessBoardRepository.GetPieceAtPositionAsync(_context, game.Id, position);
         if (piece == null) return null;
         return piece;
     }

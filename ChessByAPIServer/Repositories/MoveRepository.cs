@@ -1,4 +1,5 @@
-﻿using ChessByAPIServer.Interfaces;
+﻿using ChessByAPIServer.Enum;
+using ChessByAPIServer.Interfaces;
 using ChessByAPIServer.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,20 +18,26 @@ public class MoveValidationRepository : IMoveValidationRepository
         _gameRepository = gameRepository ?? throw new ArgumentNullException(nameof(gameRepository));
     }
 
-    public async Task<bool> IsValidMove(string piece, string start, string end, string color = null)
+    public async Task<bool> IsValidMove(string piece, string start, string end, PlayerRole? playerColor = null)
     {
         int StartRow, EndRow;
-
-        if (string.IsNullOrEmpty(start) || string.IsNullOrEmpty(end))
-            throw new ArgumentNullException("Start and end positions must not be null or empty.");
+        PlayerRole color;
         if (string.IsNullOrEmpty(piece))
             throw new ArgumentException("Piece type must not be null or empty.", nameof(piece));
-        if (start == null || end == null) return false;
+        if (playerColor != null)
+        {
+            color = (PlayerRole)playerColor!;
+        }
+        else
+        {
+            color = PlayerRole.All;
+        }
 
         var StartColumn = start[0].ToString().ToLower();
         var EndColumn = end[0].ToString().ToLower();
         if (!int.TryParse(start[1].ToString(), out StartRow) || !int.TryParse(end[1].ToString(), out EndRow))
             return false; // Return false if parsing rows failed
+        if (!IsPositionValid(StartColumn, StartRow) || !IsPositionValid(EndColumn, EndRow)) return false ;
         return piece.ToLower() switch
         {
             "pawn" => await IsPawnMoveValid(StartColumn, StartRow, EndColumn, EndRow, color),
@@ -43,15 +50,32 @@ public class MoveValidationRepository : IMoveValidationRepository
         };
     }
 
-    public async Task<bool> IsPawnMoveValid(string StartColumn, int StartRow, string EndColumn, int EndRow, string color = null)
+    public bool IsPositionValid(string column, int row)
+    {
+        // Validate column
+        if (string.IsNullOrEmpty(column) || column.Length != 1)
+            return false;
+
+        // Validate column (must be between 'a' and 'h')
+        char colChar = column[0];
+        if (colChar < 'a' || colChar > 'h')
+            return false;
+
+        // Validate row (must be a digit between 1 and 8)
+        if ( row < 1 || row > 8)
+            return false;
+
+        return true; // All checks passed
+    }
+    public async Task<bool> IsPawnMoveValid(string StartColumn, int StartRow, string EndColumn, int EndRow, PlayerRole playerColor)
 {
-    if (string.IsNullOrEmpty(color)) return false;
-    color = color.ToLower();
+    if (string.IsNullOrEmpty(playerColor.ToString())) return false;
+    
 
     var isSameColumn = StartColumn == EndColumn;
     var isOneColumnAway = Math.Abs(StartColumn[0] - EndColumn[0]) == 1;
 
-    if (color == "white")
+    if (playerColor == PlayerRole.White)
     {
         var isOneRowForward = EndRow == StartRow + 1;
 
@@ -63,7 +87,7 @@ public class MoveValidationRepository : IMoveValidationRepository
             // Capture only allowed diagonally (one row forward and one column to the left or right)
             if (isOneColumnAway && isOneRowForward)
             {
-                return await IsPieceOpponents(EndColumn, EndRow, color);
+                return await IsPieceOpponents(EndColumn, EndRow, playerColor);
             }
         }
         else
@@ -81,7 +105,7 @@ public class MoveValidationRepository : IMoveValidationRepository
             }
         }
     }
-    else if (color == "black")
+    else if (playerColor == PlayerRole.Black)
     {
         var isOneRowBackward = EndRow == StartRow - 1;
 
@@ -93,7 +117,7 @@ public class MoveValidationRepository : IMoveValidationRepository
             // Capture only allowed diagonally (one row backward and one column to the left or right)
             if (isOneColumnAway && isOneRowBackward)
             {
-                return await IsPieceOpponents(EndColumn, EndRow, color);
+                return await IsPieceOpponents(EndColumn, EndRow, playerColor);
             }
         }
         else
@@ -115,22 +139,35 @@ public class MoveValidationRepository : IMoveValidationRepository
     return false;
 }
 
-    private async Task<bool> IsPieceOpponents(string EndColumn, int EndRow, string color)
+    public async Task<bool> IsPieceOpponents(string EndColumn, int EndRow, PlayerRole playerColor)
     {
-        string? pieceColor = await _board.GetPieceColorAtPositionAsync(_gameRepository.GetChessDbContext(), _game.Id,
+        PlayerRole? pieceColor = await _board.GetPieceColorAtPositionAsync(_gameRepository.GetChessDbContext(), _game.Id,
             $"{EndColumn}{EndRow}");
         if (pieceColor == null)
         {
-            throw new ArgumentException("Invalid piece position", nameof(pieceColor));
+            throw new ArgumentException("Invalid piece color", nameof(pieceColor));
         }
-        if (pieceColor != color) return true;
+        if (pieceColor != playerColor) return true;
         return false;
     }
 
 
-    public bool IsKnightMoveValid(string StartColumn, int StartRow, string EndColumn, int EndRow)
+    public bool IsKnightMoveValid(string startColumn, int startRow, string endColumn, int endRow)
     {
-        throw new NotImplementedException();
+        // Check for valid start and end positions
+        if (string.IsNullOrEmpty(startColumn) || string.IsNullOrEmpty(endColumn))
+            return false;
+
+        // Convert columns from letters to numbers (a=1, b=2, ..., h=8)
+        int startColNum = startColumn[0] - 'a' + 1; 
+        int endColNum = endColumn[0] - 'a' + 1;
+
+        // Calculate the differences in column and row
+        int colDiff = Math.Abs(endColNum - startColNum);
+        int rowDiff = Math.Abs(endRow - startRow);
+
+        // A knight moves in an "L" shape: (2, 1) or (1, 2)
+        return (colDiff == 2 && rowDiff == 1) || (colDiff == 1 && rowDiff == 2);
     }
 
     public bool IsBishopMoveValid(string StartColumn, int StartRow, string EndColumn, int EndRow)
@@ -192,7 +229,7 @@ public class MoveValidationRepository : IMoveValidationRepository
         throw new NotImplementedException();
     }
 
-    public async Task SetSquareOccupiedAsync(string square, string pieceType, string color)
+    public async Task SetSquareOccupiedAsync(string square, string pieceType, PlayerRole color)
     {
         await _board.UpdatePositionAsync(_gameRepository.GetChessDbContext(), _game.Id, square, pieceType, color);
     }
@@ -223,9 +260,17 @@ public class MoveValidationRepository : IMoveValidationRepository
 
         bool isCapture = targetPosition != null && targetPosition.PieceColor != color;
 
-        // Construct the long algebraic notation
-        string moveNotation = piece.Substring(0, 1).ToUpper(); // Use the first letter for the piece
-
+        string moveNotation;
+        // If piece is a Knight, use "N"; otherwise, use the first letter of the piece
+        if (piece.Equals("Knight", StringComparison.OrdinalIgnoreCase))
+        {
+            moveNotation = "N";
+        }
+        else
+        {
+            moveNotation = piece.Substring(0, 1).ToUpper();
+        }
+        
         if (isCapture)
         {
             moveNotation += startPosition + "x" + endPosition;
@@ -247,4 +292,18 @@ public class MoveValidationRepository : IMoveValidationRepository
 
         return mostRecentMoveNumber;
     }
+
+    public bool IsEndMoveDiagonal(string StartColumn, int StartRow, string EndColumn, int EndRow)
+    {
+        // Validate input lengths first
+        if (StartColumn.Length != 1 || EndColumn.Length != 1) return false;
+
+        // Convert columns ('a'-'h') to numbers (1-8)
+        int startColNum = StartColumn[0] - 'a' + 1;
+        int endColNum = EndColumn[0] - 'a' + 1;
+        
+        // Check if the move is diagonal
+        return Math.Abs(startColNum - endColNum) == Math.Abs(StartRow - EndRow);
+    }
+
 }

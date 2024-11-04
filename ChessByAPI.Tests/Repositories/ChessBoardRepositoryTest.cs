@@ -7,6 +7,7 @@ using ChessByAPIServer.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 using ChessByAPIServer;
+using ChessByAPIServer.Enum;
 
 public class ChessBoardRepositoryTests
 {
@@ -43,9 +44,9 @@ public class ChessBoardRepositoryTests
     }
 
     [Theory]
-    [InlineData("e4", "Knight","white", false)]  // Adding a Knight to e4
-    [InlineData("d4", null,"white", true)]       // Clearing the piece at d4
-    public async Task UpdatePositionAsync_ShouldUpdateSpecificPosition(string position, string? newPiece, string? color, bool expectedIsEmpty)
+    [InlineData("e4", "Knight",PlayerRole.White, false)]  // Adding a Knight to e4
+    [InlineData("d4", null,PlayerRole.White, true)]       // Clearing the piece at d4
+    public async Task UpdatePositionAsync_ShouldUpdateSpecificPosition(string position, string? newPiece, PlayerRole? color, bool expectedIsEmpty)
     {
         // Act
         var updateResult = await _repository.UpdatePositionAsync(_context, _gameId, position, newPiece, color);
@@ -69,7 +70,7 @@ public class ChessBoardRepositoryTests
         string nonExistentPosition = "z9"; // Invalid position
 
         // Act
-        var result = await _repository.UpdatePositionAsync(_context, _gameId, nonExistentPosition, "Rook", "white");
+        var result = await _repository.UpdatePositionAsync(_context, _gameId, nonExistentPosition, "Rook", PlayerRole.White);
 
         // Assert
         Assert.False(result); // Expect false as position does not exist

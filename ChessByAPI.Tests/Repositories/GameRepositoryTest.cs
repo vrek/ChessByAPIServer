@@ -309,7 +309,7 @@ public class GameRepositoryTest : IDisposable
         // Seed game
         await context.Games.AddAsync(game);
         await context.SaveChangesAsync();
-
+    
         // Seed initial positions
         await context.ChessPositions.AddRangeAsync(new[]
         {
@@ -320,30 +320,29 @@ public class GameRepositoryTest : IDisposable
         });
         await context.SaveChangesAsync();
     }
-
+    
     [Fact]
     public async Task TakeMoveAsync_ValidMove_ReturnsTrue()
     {
         // Arrange
         var game = new Game (Guid.NewGuid(), 1, 2);
-        using var context = GetInMemoryDbContext();
         
-        await SeedDatabaseAsync(context, game);
-
+        await SeedDatabaseAsync(_context, game);
+    
         // Act
-        var result = await _gameRepository.TakeMoveAsync(game, "e2", "e4");
-
+        var result = await _gameRepository.TakeMoveAsync(game, "e2", "e4", PlayerRole.White);
+    
         // Assert
         Assert.True(result);
-        var startPosition = await context.ChessPositions.FirstAsync(cp => cp.Position == "e2" && cp.GameId == game.Id);
-        var endPosition = await context.ChessPositions.FirstAsync(cp => cp.Position == "e4" && cp.GameId == game.Id);
-
+        var startPosition = await _context.ChessPositions.FirstAsync(cp => cp.Position == "e2" && cp.GameId == game.Id);
+        var endPosition = await _context.ChessPositions.FirstAsync(cp => cp.Position == "e4" && cp.GameId == game.Id);
+    
         Assert.True(startPosition.IsEmpty);
         Assert.False(endPosition.IsEmpty);
         Assert.Equal("Pawn", endPosition.Piece);
         Assert.Equal("White", endPosition.PieceColor);
     }
-
+    
     [Fact]
     public async Task TakeMoveAsync_MoveFromEmptySquare_ReturnsFalse()
     {
@@ -351,14 +350,14 @@ public class GameRepositoryTest : IDisposable
         var game = new Game (Guid.NewGuid(), 1, 2);
         using var context = GetInMemoryDbContext();
         await SeedDatabaseAsync(context, game);
-
+    
         // Act
-        var result = await _gameRepository.TakeMoveAsync(game, "e3", "e4"); // "e3" is empty
-
+        var result = await _gameRepository.TakeMoveAsync(game, "e3", "e4", PlayerRole.White); // "e3" is empty
+    
         // Assert
         Assert.False(result);
     }
-
+    
     [Fact]
     public async Task TakeMoveAsync_InvalidMove_ReturnsFalse()
     {
@@ -366,10 +365,10 @@ public class GameRepositoryTest : IDisposable
         var game = new Game (Guid.NewGuid(), 1, 2);
         using var context = GetInMemoryDbContext();
         await SeedDatabaseAsync(context, game);
-
+    
         // Act
-        var result = await _gameRepository.TakeMoveAsync(game, "e2", "e5"); // Invalid move for a pawn
-
+        var result = await _gameRepository.TakeMoveAsync(game, "e2", "e5", PlayerRole.White); // Invalid move for a pawn
+    
         // Assert
         Assert.False(result);
     }
@@ -380,7 +379,7 @@ public class GameRepositoryTest : IDisposable
         // Arrange
         var game = new Game (Guid.NewGuid(), 1, 2);
         using var context = GetInMemoryDbContext();
-
+    
         // Add a position without a color
         await context.ChessPositions.AddAsync(new ChessPosition
         {
@@ -391,10 +390,10 @@ public class GameRepositoryTest : IDisposable
             PieceColor = null // No color set
         });
         await context.SaveChangesAsync();
-
+    
         // Act
-        var result = await _gameRepository.TakeMoveAsync(game, "e2", "e4");
-
+        var result = await _gameRepository.TakeMoveAsync(game, "e2", "e4", PlayerRole.White);
+    
         // Assert
         Assert.False(result);
     }

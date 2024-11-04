@@ -81,27 +81,35 @@ public class GameControllerTests
         // Arrange
         var whitePlayerId = 1;
         var blackPlayerId = 2;
-        var newGameId = Guid.NewGuid();
-        Game expectedGame = new(newGameId, whitePlayerId, blackPlayerId);
+        var context = GetInMemoryDbContext();
+        
+        // Add mock users to the in-memory database
+        await context.Users.AddRangeAsync(
+            new User { Id = whitePlayerId, UserName = "White Player", Password = "Password", Email = "test@email.com"},
+            new User { Id = blackPlayerId, UserName = "White Player", Password = "Password", Email = "test@email.com"}
+        );
+        await context.SaveChangesAsync();
 
-        // Mock the repository to return the expected game
-        _ = _gameRepositoryMock
-            .Setup(repo => repo.CreateGameAsync(whitePlayerId, blackPlayerId))
-            .ReturnsAsync(expectedGame);
+        var gameRepository = new GameRepository(context);
+        var gameController = new GameController(gameRepository);
 
         // Act
-        var result = await _gameController.CreateGame(whitePlayerId, blackPlayerId);
+        var result = await gameController.CreateGame(whitePlayerId, blackPlayerId);
 
         // Assert
-        var createdAtActionResult =
-            Assert.IsType<CreatedAtActionResult>(result.Result); // Assert that the result is CreatedAtActionResult
-        Assert.Equal(nameof(_gameController.GetGame),
-            createdAtActionResult.ActionName); // Assert that the action name is correct
-        Assert.Equal(newGameId, ((Game)createdAtActionResult.Value).Id); // Assert that the ID is correct
-        Assert.Equal(whitePlayerId,
-            ((Game)createdAtActionResult.Value).WhitePlayerId); // Assert whitePlayerId is correct
-        Assert.Equal(blackPlayerId,
-            ((Game)createdAtActionResult.Value).BlackPlayerId); // Assert blackPlayerId is correct
+        var createdAtActionResult = Assert.IsType<CreatedAtActionResult>(result.Result);
+        Assert.Equal(nameof(gameController.GetGame), createdAtActionResult.ActionName);
+
+        var createdGame = createdAtActionResult.Value as Game;
+        Assert.NotNull(createdGame);
+        Assert.Equal(whitePlayerId, createdGame.WhitePlayerId);
+        Assert.Equal(blackPlayerId, createdGame.BlackPlayerId);
+
+        // Verify that the game was actually added to the in-memory database
+        var storedGame = await context.Games.FindAsync(createdGame.Id);
+        Assert.NotNull(storedGame);
+        Assert.Equal(whitePlayerId, storedGame.WhitePlayerId);
+        Assert.Equal(blackPlayerId, storedGame.BlackPlayerId);
     }
 
     [Fact]

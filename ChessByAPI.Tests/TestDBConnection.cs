@@ -1,4 +1,5 @@
 ﻿using ChessByAPIServer;
+using ChessByAPIServer.Contexts;
 using ChessByAPIServer.Models;
 using Microsoft.EntityFrameworkCore;
 

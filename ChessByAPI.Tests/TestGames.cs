@@ -1,4 +1,5 @@
 ﻿using ChessByAPIServer;
+using ChessByAPIServer.Contexts;
 using ChessByAPIServer.Controllers;
 using ChessByAPIServer.DTOs;
 using ChessByAPIServer.Interfaces;
@@ -12,22 +13,25 @@ namespace ChessByAPI.Tests;
 
 public class GameControllerTests
 {
-    private readonly GameController _gameController;
     private readonly Mock<IGameRepository> _gameRepositoryMock;
-    private readonly Mock<ChessDbContext> _mockContext;
+    private readonly Mock<IChessBoardRepository> _chessBoardRepositoryMock;
+    private readonly Mock<IUserRepository> _userRepositoryMock;
+    private readonly Mock<IMoveRepository> _moveRepositoryMock;
+    private readonly GameController _gameController;
 
     public GameControllerTests()
     {
-        // Set up the mock repository
+        // Set up the mock repositories
         _gameRepositoryMock = new Mock<IGameRepository>();
-
-        _ = _gameRepositoryMock.Setup(repo => repo.CreateGameAsync(It.IsAny<int>(), It.IsAny<int>()))
-            .ReturnsAsync(new Game(Guid.NewGuid(), 1, 2));
-
-
-        // Create the controller and inject the mocked repository
-        _gameController = new GameController(_gameRepositoryMock.Object);
-        _mockContext = new Mock<ChessDbContext>();
+        _chessBoardRepositoryMock = new Mock<IChessBoardRepository>();
+        _userRepositoryMock = new Mock<IUserRepository>();
+        _moveRepositoryMock = new Mock<IMoveRepository>(); // Example setup for _gameRepositoryMock 
+        _gameRepositoryMock.Setup(repo => repo.CreateGameAsync(It.IsAny<int>(), It.IsAny<int>()))
+            .ReturnsAsync(new Game(Guid.NewGuid(), 1,
+                2));
+        // Inject the mocked repositories into the controller
+        _gameController = new GameController(_gameRepositoryMock.Object, _chessBoardRepositoryMock.Object,
+            _userRepositoryMock.Object, _moveRepositoryMock.Object);
     }
 
     private ChessDbContext GetInMemoryDbContext()
@@ -75,147 +79,52 @@ public class GameControllerTests
         _ = Assert.IsType<NotFoundResult?>(result.Result);
     }
 
-    [Fact]
-    public async Task CreateGame_ShouldReturnCreatedGame()
+    [Theory]
+    [InlineData(1, 2, true, null)]       // Valid players, expecting a successful game creation
+    [InlineData(999, 2, false, typeof(InvalidOperationException))] // Invalid white player, expecting InvalidOperationException
+    [InlineData(1, 999, false, typeof(InvalidOperationException))] // Invalid black player, expecting InvalidOperationException
+    public async Task CreateGame_VariousScenarios(
+        int whitePlayerId,
+        int blackPlayerId,
+        bool shouldCreateGame,
+        Type? expectedExceptionType)
     {
         // Arrange
-        var whitePlayerId = 1;
-        var blackPlayerId = 2;
         var context = GetInMemoryDbContext();
-        
-        // Add mock users to the in-memory database
         await context.Users.AddRangeAsync(
-            new User { Id = whitePlayerId, UserName = "White Player", Password = "Password", Email = "test@email.com"},
-            new User { Id = blackPlayerId, UserName = "White Player", Password = "Password", Email = "test@email.com"}
+            new User { Id = 1, UserName = "testuser1", Email = "email1@test.com", Password = "password123" },
+            new User { Id = 2, UserName = "testuser2", Email = "email2@test.com", Password = "password1234" }
         );
         await context.SaveChangesAsync();
-
         var gameRepository = new GameRepository(context);
-        var gameController = new GameController(gameRepository);
 
-        // Act
-        var result = await gameController.CreateGame(whitePlayerId, blackPlayerId);
+        // Act & Assert
+        if (expectedExceptionType != null)
+        {
+            // If an exception is expected, assert that it is thrown
+            await Assert.ThrowsAsync(expectedExceptionType, async () =>
+            {
+                await gameRepository.CreateGameAsync(whitePlayerId, blackPlayerId);
+            });
+        }
+        else
+        {
+            // Otherwise, expect a successful game creation
+            var createdGame = await gameRepository.CreateGameAsync(whitePlayerId, blackPlayerId);
 
-        // Assert
-        var createdAtActionResult = Assert.IsType<CreatedAtActionResult>(result.Result);
-        Assert.Equal(nameof(gameController.GetGame), createdAtActionResult.ActionName);
-
-        var createdGame = createdAtActionResult.Value as Game;
-        Assert.NotNull(createdGame);
-        Assert.Equal(whitePlayerId, createdGame.WhitePlayerId);
-        Assert.Equal(blackPlayerId, createdGame.BlackPlayerId);
-
-        // Verify that the game was actually added to the in-memory database
-        var storedGame = await context.Games.FindAsync(createdGame.Id);
-        Assert.NotNull(storedGame);
-        Assert.Equal(whitePlayerId, storedGame.WhitePlayerId);
-        Assert.Equal(blackPlayerId, storedGame.BlackPlayerId);
+            // Verify the game was created as expected
+            Assert.NotNull(createdGame);
+            Assert.Equal(whitePlayerId, createdGame.WhitePlayerId);
+            Assert.Equal(blackPlayerId, createdGame.BlackPlayerId);
+        
+            // Verify the game exists in the database
+            var retrievedGame = await context.Games.FirstOrDefaultAsync(g => g.Id == createdGame.Id);
+            Assert.NotNull(retrievedGame);
+            Assert.Equal(whitePlayerId, retrievedGame.WhitePlayerId);
+            Assert.Equal(blackPlayerId, retrievedGame.BlackPlayerId);
+        }
     }
 
-    [Fact]
-    public async Task CreateGameThrowsExceptionWithInvalidWhitePlayer()
-    {
-        var _context = GetInMemoryDbContext();
-        UserRepository userRepository = new(_context);
-        User? user1 = new()
-        {
-            UserName = "testuser",
-            Email = "email1@test.com",
-            Password = "password123"
-        };
-        User? user2 = new()
-        {
-            UserName = "testuser2",
-            Email = "email2@test.com",
-            Password = "password1234"
-        };
-
-        _ = await _context.Users.AddAsync(user1);
-        _ = await _context.Users.AddAsync(user2);
-        _ = await _context.SaveChangesAsync();
-        Task<List<UserDTO>> users = userRepository.GetAll();
-        GameRepository gameRepository = new(_context);
-
-        // Assert: Verify that an exception is thrown for an invalid white player
-        _ = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-        {
-            // Trying to create a game with invalid whitePlayerId (999)
-            _ = await gameRepository.CreateGameAsync(999, 2); // user2 is valid
-        });
-    }
-
-    [Fact]
-    public async Task CreateGameThrowsExceptionWithInvalidBlackPlayer()
-    {
-        var _context = GetInMemoryDbContext();
-        UserRepository userRepository = new(_context);
-        User? user1 = new()
-        {
-            UserName = "testuser",
-            Email = "email1@test.com",
-            Password = "password123"
-        };
-        User? user2 = new()
-        {
-            UserName = "testuser2",
-            Email = "email2@test.com",
-            Password = "password1234"
-        };
-
-        _ = await _context.Users.AddAsync(user1);
-        _ = await _context.Users.AddAsync(user2);
-        _ = await _context.SaveChangesAsync();
-        _ = userRepository.GetAll();
-        GameRepository gameRepository = new(_context);
-
-        // Assert: Verify that an exception is thrown for an invalid white player
-        _ = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-        {
-            // Trying to create a game with invalid whitePlayerId (999)
-            _ = await gameRepository.CreateGameAsync(1, 999); // user2 is valid
-        });
-    }
-
-    [Fact]
-    public async Task CreateGameCreatesGameWithValidPlayers()
-    {
-        // Arrange: Set up in-memory database context and repository
-        var _context = GetInMemoryDbContext();
-        UserRepository userRepository = new(_context);
-        GameRepository gameRepo = new(_context);
-
-        // Create two valid users
-        User? user1 = new()
-        {
-            UserName = "testuser",
-            Email = "email1@test.com",
-            Password = "password123"
-        };
-
-        User? user2 = new()
-        {
-            UserName = "testuser2",
-            Email = "email2@test.com",
-            Password = "password1234"
-        };
-
-        // Add users to the context and save
-        _ = await _context.Users.AddAsync(user1);
-        _ = await _context.Users.AddAsync(user2);
-        _ = await _context.SaveChangesAsync();
-
-        // Act: Create a game with valid players
-        GameRepository gameRepository = new(_context);
-        var createdGame = await gameRepository.CreateGameAsync(user1.Id, user2.Id);
-        var gameresponse = gameRepo.CreateGameAsync(1, 2);
-
-        // Assert: Check that the game was created successfully
-        var retrievedGame = await _context.Games.FirstOrDefaultAsync(g => g.Id == createdGame.Id);
-
-        Assert.NotNull(retrievedGame); // Ensure the game exists
-        Assert.Equal(user1.Id, retrievedGame.WhitePlayerId); // Check white player
-        Assert.Equal(user2.Id, retrievedGame.BlackPlayerId); // Check black player
-    }
 
     //[Fact]
     //public async Task CreateGameAsync_BothPlayersValid_CreatesGame()

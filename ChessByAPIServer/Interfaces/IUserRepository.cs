@@ -7,11 +7,11 @@ namespace ChessByAPIServer;
 public interface IUserRepository : IDisposable
 {
     Task<User?> AddUser([FromBody] User? user);
-    Task<List<UserDTO>?> GetAll(); // Change this to return List<UserDTO>
-    Task<User> GetbyId(int id);
+    Task<List<UserDto>?> GetAll(); // Change this to return List<UserDTO>
+    Task<User?> GetbyIdAsync(int id);
     Task<bool> DeleteUser(int id);
 
-    void Dispose();
+    new void Dispose();
 
     //Task<User?> AddUserAsync(User user);
 }

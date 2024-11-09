@@ -1,4 +1,5 @@
-﻿using ChessByAPIServer.Enum;
+﻿using ChessByAPIServer.Contexts;
+using ChessByAPIServer.Enum;
 using ChessByAPIServer.Interfaces;
 using ChessByAPIServer.Models;
 using Microsoft.EntityFrameworkCore;
@@ -20,7 +21,7 @@ public class ChessBoardRepository : IChessBoardRepository
 
         // Add white pieces with color
         AddPieces(gameId, whitePieces, chessPositions, "White");
-        
+
         // Add black pieces with color
         AddPieces(gameId, blackPieces, chessPositions, "Black");
 
@@ -52,7 +53,7 @@ public class ChessBoardRepository : IChessBoardRepository
                     PieceColor = null // No piece, no color
                 });
     }
-    
+
     public static void AddPieces(Guid gameId, Dictionary<string, string> pieces,
         List<ChessPosition> chessPositions, string pieceColor)
     {
@@ -66,8 +67,9 @@ public class ChessBoardRepository : IChessBoardRepository
                 PieceColor = pieceColor // Set the piece color
             });
     }
-    
-    public async Task<bool> UpdatePositionAsync(ChessDbContext context, Guid gameId, string position, string? newPiece = null, PlayerRole? newPlayerRole = null)
+
+    public async Task<bool> UpdatePositionAsync(ChessDbContext context, Guid gameId, string position,
+        string? newPiece = null, PlayerRole? newPlayerRole = null)
     {
         var newPieceColor = newPlayerRole.ToString();
         // Find the specific position to update in the database
@@ -75,14 +77,12 @@ public class ChessBoardRepository : IChessBoardRepository
             .FirstOrDefaultAsync(cp => cp.GameId == gameId && cp.Position == position);
 
         if (targetPosition == null)
-        {
             // Position does not exist, return false to indicate failure
             return false;
-        }
 
         // Update the piece and IsEmpty status
         targetPosition.Piece = newPiece;
-        targetPosition.PieceColor = newPieceColor; 
+        targetPosition.PieceColor = newPieceColor;
         targetPosition.IsEmpty = newPiece == null;
 
         // Save only the changes made to targetPosition
@@ -132,7 +132,7 @@ public class ChessBoardRepository : IChessBoardRepository
 
         return chessPosition?.Piece;
     }
-    
+
     public async Task<PlayerRole?> GetPieceColorAtPositionAsync(ChessDbContext context, Guid gameId, string position)
     {
         var chessPosition = await context.ChessPositions
@@ -146,7 +146,7 @@ public class ChessBoardRepository : IChessBoardRepository
             _ => null // If there is no piece or the color is unknown
         };
     }
-    
+
     public async Task<List<ChessPosition>> GetAllPositionsAsync(ChessDbContext context, Guid gameId)
     {
         // Retrieve all positions for the specified gameId
@@ -156,7 +156,7 @@ public class ChessBoardRepository : IChessBoardRepository
 
         return chessPositions;
     }
-    
+
     public async Task<bool> IsSquareOccupied(ChessDbContext context, Guid gameId, string position)
     {
         var targetPosition = await context.ChessPositions

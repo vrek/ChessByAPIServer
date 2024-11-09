@@ -2,7 +2,7 @@
 
 namespace ChessByAPIServer.Repositories;
 
-public interface IMoveValidationRepository
+public interface IMoveRepository
 {
     Task<bool> IsValidMove(string piece, string start, string end, PlayerRole? color = null);
     Task<bool> IsPawnMoveValid(string StartColumn, int StartRow, string EndColumn, int EndRow, PlayerRole color);

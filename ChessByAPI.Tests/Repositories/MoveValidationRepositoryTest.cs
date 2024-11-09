@@ -1,17 +1,17 @@
 ﻿using ChessByAPIServer;
+using ChessByAPIServer.Contexts;
 using ChessByAPIServer.Enum;
 using ChessByAPIServer.Interfaces;
 using ChessByAPIServer.Models;
 using ChessByAPIServer.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
-
 using Xunit;
 
 public class HelperMoveValidationRepositoryTest : IDisposable
 {
     private ChessDbContext _context;
-    private MoveValidationRepository _Validator;
+    private MoveRepository _Validator;
     private ChessBoardRepository boardRepo;
     private Game game;
     private GameRepository gameRepo;
@@ -32,7 +32,7 @@ public class HelperMoveValidationRepositoryTest : IDisposable
         boardRepo.InitializeChessBoard(_context, game.Id);
 
         gameRepo = new GameRepository(_context);
-        _Validator = new MoveValidationRepository(game, boardRepo, gameRepo);
+        _Validator = new MoveRepository(game, boardRepo, gameRepo);
     }
 
     private ChessDbContext GetInMemoryDbContext()
@@ -47,27 +47,28 @@ public class HelperMoveValidationRepositoryTest : IDisposable
     {
         _context.Dispose();
     }
+
     [Theory]
-    [InlineData("a", 1, true)]  // Valid position
-    [InlineData("h", 8, true)]  // Valid position
-    [InlineData("d", 4, true)]  // Valid position
-    [InlineData("b", 7, true)]  // Valid position
+    [InlineData("a", 1, true)] // Valid position
+    [InlineData("h", 8, true)] // Valid position
+    [InlineData("d", 4, true)] // Valid position
+    [InlineData("b", 7, true)] // Valid position
     public void IsPositionValid_ValidInputs_ShouldReturnTrue(string column, int row, bool expected)
     {
         // Act
         var result = _Validator.IsPositionValid(column, row);
-        
+
         // Assert
         Assert.Equal(expected, result);
     }
 
     [Theory]
-    [InlineData("", 1, false)]   // Empty column
-    [InlineData("aa", 1, false)]  // Invalid column length
-    [InlineData("z", 1, false)]   // Column out of range
-    [InlineData("h", 0, false)]   // Row below valid range
-    [InlineData("h", 9, false)]   // Row above valid range
-    [InlineData("c", -1, false)]  // Negative row
+    [InlineData("", 1, false)] // Empty column
+    [InlineData("aa", 1, false)] // Invalid column length
+    [InlineData("z", 1, false)] // Column out of range
+    [InlineData("h", 0, false)] // Row below valid range
+    [InlineData("h", 9, false)] // Row above valid range
+    [InlineData("c", -1, false)] // Negative row
     public void IsPositionValid_InvalidInputs_ShouldReturnFalse(string column, int row, bool expected)
     {
         // Act
@@ -78,11 +79,11 @@ public class HelperMoveValidationRepositoryTest : IDisposable
     }
 
     [Theory]
-    [InlineData("a", 0, false)]  // Row is zero (invalid)
-    [InlineData("a", 9, false)]  // Row exceeds valid range
-    [InlineData("a", 5, true)]   // Valid position with a valid row
-    [InlineData("b", 1, true)]   // Valid position with a valid row
-    [InlineData("e", 8, true)]   // Valid position with a valid row
+    [InlineData("a", 0, false)] // Row is zero (invalid)
+    [InlineData("a", 9, false)] // Row exceeds valid range
+    [InlineData("a", 5, true)] // Valid position with a valid row
+    [InlineData("b", 1, true)] // Valid position with a valid row
+    [InlineData("e", 8, true)] // Valid position with a valid row
     public void IsPositionValid_AdditionalCases_ShouldReturnExpected(string column, int row, bool expected)
     {
         // Act
@@ -91,7 +92,7 @@ public class HelperMoveValidationRepositoryTest : IDisposable
         // Assert
         Assert.Equal(expected, result);
     }
-    
+
     [Theory]
     [InlineData("a", 1, PlayerRole.White, false)]
     [InlineData("c", 2, PlayerRole.White, false)]
@@ -106,6 +107,7 @@ public class HelperMoveValidationRepositoryTest : IDisposable
         //Act
         var result = _Validator.IsPieceOpponents(column, row, playerColor);
     }
+
     [Theory]
     [InlineData("Knight", "g1", "f3", "White", false, "Ng1-f3")]
     [InlineData("Knight", "g1", "f3", "White", true, "Ng1xf3")]
@@ -113,10 +115,10 @@ public class HelperMoveValidationRepositoryTest : IDisposable
     [InlineData("Pawn", "e2", "e4", "White", false, "Pe2-e4")]
     [InlineData("Dragon", "e2", "e4", "White", false, "De2-e4")]
     public async Task GetLongAlgebraicNotationAsync_ShouldReturnCorrectNotation(
-        string piece, 
-        string startPosition, 
-        string endPosition, 
-        string color, 
+        string piece,
+        string startPosition,
+        string endPosition,
+        string? color,
         bool isCapture,
         string expectedNotation)
     {
@@ -135,11 +137,9 @@ public class HelperMoveValidationRepositoryTest : IDisposable
             // Ensure no piece is present at the end position for non-capture cases
             var position = await _context.ChessPositions
                 .FirstOrDefaultAsync(p => p.GameId == game.Id && p.Position == endPosition);
-            if (position != null)
-            {
-                _context.ChessPositions.Remove(position);
-            }
+            if (position != null) _context.ChessPositions.Remove(position);
         }
+
         await _context.SaveChangesAsync();
 
         // Act
@@ -148,20 +148,22 @@ public class HelperMoveValidationRepositoryTest : IDisposable
         // Assert
         Assert.Equal(expectedNotation, result);
     }
+
     [Theory]
-    [InlineData("a",1, "g",7, true)]  // Valid position
-    [InlineData("b",4, "f",8, true)]  // Valid position
-    [InlineData("h",7, "e",4, true)]  // Valid position
-    [InlineData("g",3, "d",6, true)]  // Valid position
-    [InlineData("a",1, "a",7, false)]  // Valid position
-    [InlineData("b",4, "g",6, false)]  // Valid position
-    [InlineData("h",7, "f",3, false)]  // Valid position
-    [InlineData("g",3, "g",3, true)]  // Valid position
-    public void IsEndMoveDiagonalShouldReturnCorrectAnswer(string StartColumn, int StartRow, string EndColumn, int EndRow, bool expected)
+    [InlineData("a", 1, "g", 7, true)] // Valid position
+    [InlineData("b", 4, "f", 8, true)] // Valid position
+    [InlineData("h", 7, "e", 4, true)] // Valid position
+    [InlineData("g", 3, "d", 6, true)] // Valid position
+    [InlineData("a", 1, "a", 7, false)] // Valid position
+    [InlineData("b", 4, "g", 6, false)] // Valid position
+    [InlineData("h", 7, "f", 3, false)] // Valid position
+    [InlineData("g", 3, "g", 3, true)] // Valid position
+    public void IsEndMoveDiagonalShouldReturnCorrectAnswer(string StartColumn, int StartRow, string EndColumn,
+        int EndRow, bool expected)
     {
         // Act
-        var result = _Validator.IsEndMoveDiagonal(StartColumn, StartRow,EndColumn, EndRow);
-        
+        var result = _Validator.IsEndMoveDiagonal(StartColumn, StartRow, EndColumn, EndRow);
+
         // Assert
         Assert.Equal(expected, result);
     }
@@ -171,7 +173,7 @@ public class HelperMoveValidationRepositoryTest : IDisposable
 public class PawnMoveValidationRepositoryTest : IDisposable
 {
     private ChessDbContext _context;
-    private MoveValidationRepository _moveValidator;
+    private MoveRepository _moveValidator;
     private ChessBoardRepository boardRepo;
     private Game game;
     private GameRepository gameRepo;
@@ -192,7 +194,7 @@ public class PawnMoveValidationRepositoryTest : IDisposable
         boardRepo.InitializeChessBoard(_context, game.Id);
 
         gameRepo = new GameRepository(_context);
-        _moveValidator = new MoveValidationRepository(game, boardRepo, gameRepo);
+        _moveValidator = new MoveRepository(game, boardRepo, gameRepo);
     }
 
     private ChessDbContext GetInMemoryDbContext()
@@ -217,7 +219,8 @@ public class PawnMoveValidationRepositoryTest : IDisposable
     [InlineData("pawn", "e2", "d3", PlayerRole.White, false)]
     [InlineData("pawn", "d4", "e5", PlayerRole.White, false)]
     [InlineData("pawn", "d7", "d4", PlayerRole.White, false)]
-    public async Task IsValidMove_ShouldReturnExpectedResult(string piece, string start, string end, PlayerRole color, bool expected)
+    public async Task IsValidMove_ShouldReturnExpectedResult(string piece, string start, string end, PlayerRole color,
+        bool expected)
     {
         InitializeTest(); // Reinitialize board state before each test
 
@@ -229,18 +232,15 @@ public class PawnMoveValidationRepositoryTest : IDisposable
     [Theory]
     [InlineData("e2", "e3", true, false)]
     [InlineData("e2", "e3", false, true)]
-    public async Task Pawn_CannotMoveForward_IfSquareIsOccupied(string start, string end, bool isEndOccupied, bool expectedResult)
+    public async Task Pawn_CannotMoveForward_IfSquareIsOccupied(string start, string end, bool isEndOccupied,
+        bool expectedResult)
     {
         InitializeTest(); // Reinitialize board state before each test
 
         if (isEndOccupied)
-        {
             await _moveValidator.SetSquareOccupiedAsync(end, "pawn", PlayerRole.White);
-        }
         else
-        {
             await _moveValidator.SetSquareOccupiedAsync(end, null, PlayerRole.White);
-        }
 
         var result = await _moveValidator.IsValidMove("pawn", start, end, PlayerRole.White);
 
@@ -252,18 +252,15 @@ public class PawnMoveValidationRepositoryTest : IDisposable
     [InlineData("e2", "f3", true, PlayerRole.Black, PlayerRole.Black, false)]
     [InlineData("e2", "f3", true, PlayerRole.White, PlayerRole.Black, true)]
     [InlineData("e2", "f3", false, PlayerRole.White, PlayerRole.Black, false)]
-    public async Task Pawn_CanMoveDiagonally_OnlyIfSquareIsOccupied(string start, string end, bool isEndOccupied, PlayerRole playersColor, PlayerRole capturePieceColor, bool expectedResult)
+    public async Task Pawn_CanMoveDiagonally_OnlyIfSquareIsOccupied(string start, string end, bool isEndOccupied,
+        PlayerRole playersColor, PlayerRole capturePieceColor, bool expectedResult)
     {
         InitializeTest(); // Reinitialize board state before each test
 
         if (isEndOccupied)
-        {
             await _moveValidator.SetSquareOccupiedAsync(end, "pawn", capturePieceColor);
-        }
         else
-        {
             await _moveValidator.SetSquareOccupiedAsync(end, null, capturePieceColor);
-        }
 
         var result = await _moveValidator.IsValidMove("pawn", start, end, playersColor);
 
@@ -275,27 +272,20 @@ public class PawnMoveValidationRepositoryTest : IDisposable
     [InlineData("e2", "e4", "e3", true, false, false)]
     [InlineData("e2", "e4", "e3", false, true, false)]
     [InlineData("e2", "e4", "e3", true, true, false)]
-    public async Task Pawn_CanMoveTwoSquaresFromStart_OnlyIfBothSquaresUnoccupied(string start, string end, string intermediateSquare, bool isIntermediateOccupied, bool isDestinationOccupied, bool expectedResult)
+    public async Task Pawn_CanMoveTwoSquaresFromStart_OnlyIfBothSquaresUnoccupied(string start, string end,
+        string intermediateSquare, bool isIntermediateOccupied, bool isDestinationOccupied, bool expectedResult)
     {
         InitializeTest(); // Reinitialize board state before each test
 
         if (isIntermediateOccupied)
-        {
             await _moveValidator.SetSquareOccupiedAsync(intermediateSquare, "pawn", PlayerRole.White);
-        }
         else
-        {
             await _moveValidator.SetSquareOccupiedAsync(intermediateSquare, null, PlayerRole.White);
-        }
 
         if (isDestinationOccupied)
-        {
             await _moveValidator.SetSquareOccupiedAsync(end, "pawn", PlayerRole.White);
-        }
         else
-        {
             await _moveValidator.SetSquareOccupiedAsync(end, null, PlayerRole.White);
-        }
 
         var result = await _moveValidator.IsValidMove("pawn", start, end, PlayerRole.White);
 
@@ -306,7 +296,7 @@ public class PawnMoveValidationRepositoryTest : IDisposable
 public class KnightMoveValidationRepositoryTest : IDisposable
 {
     private ChessDbContext _context;
-    private MoveValidationRepository _moveValidator;
+    private MoveRepository _moveValidator;
     private ChessBoardRepository boardRepo;
     private Game game;
     private GameRepository gameRepo;
@@ -327,7 +317,7 @@ public class KnightMoveValidationRepositoryTest : IDisposable
         boardRepo.InitializeChessBoard(_context, game.Id);
 
         gameRepo = new GameRepository(_context);
-        _moveValidator = new MoveValidationRepository(game, boardRepo, gameRepo);
+        _moveValidator = new MoveRepository(game, boardRepo, gameRepo);
     }
 
     private ChessDbContext GetInMemoryDbContext()
@@ -356,7 +346,8 @@ public class KnightMoveValidationRepositoryTest : IDisposable
     [InlineData("knight", "e2", "d3", PlayerRole.White, false)]
     [InlineData("knight", "d4", "e5", PlayerRole.White, false)]
     [InlineData("knight", "d7", "d4", PlayerRole.White, false)]
-    public async Task Knight_IsValidMove_ShouldReturnExpectedResult(string piece, string start, string end, PlayerRole color, bool expected)
+    public async Task Knight_IsValidMove_ShouldReturnExpectedResult(string piece, string start, string end,
+        PlayerRole color, bool expected)
     {
         InitializeTest(); // Reinitialize board state before each test
 
@@ -365,5 +356,3 @@ public class KnightMoveValidationRepositoryTest : IDisposable
         Assert.Equal(expected, result);
     }
 }
-
-

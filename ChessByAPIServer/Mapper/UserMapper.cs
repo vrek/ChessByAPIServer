@@ -5,12 +5,12 @@ namespace ChessByAPIServer.Mapper;
 
 public static class UserMapper
 {
-    public static UserDTO ToUserDTO(this User userModel)
+    public static UserDto ToUserDto(this User userModel)
     {
-        return new UserDTO { Id = userModel.Id, UserName = userModel.UserName, Email = userModel.Email };
+        return new UserDto { Id = userModel.Id, UserName = userModel.UserName, Email = userModel.Email };
     }
 
-    public static User CreateUserfromUserDTO(this UserDTO user)
+    public static User CreateUserfromUserDto(this UserDto user)
     {
         return new User { UserName = user.UserName, Email = user.Email };
     }

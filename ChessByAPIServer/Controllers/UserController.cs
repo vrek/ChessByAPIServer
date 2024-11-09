@@ -1,13 +1,14 @@
-﻿using ChessByAPIServer.Models;
+﻿using ChessByAPIServer.Contexts;
+using ChessByAPIServer.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ChessByAPIServer.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class UserController(IUserRepository userRepo) : Controller
+public class UserController(IUserRepository userRepo, ChessDbContext context) : Controller
 {
-    private readonly ChessDbContext _context;
+    private readonly ChessDbContext _context = context;
     private readonly IUserRepository _userRepo = userRepo;
 
     [HttpGet]
@@ -22,7 +23,7 @@ public class UserController(IUserRepository userRepo) : Controller
     [HttpGet("{id}")]
     public async Task<IActionResult> GetbyId(int id)
     {
-        var _user = await _userRepo.GetbyId(id);
+        var _user = await _userRepo.GetbyIdAsync(id);
         if (_user == null) return NotFound();
         return Ok(_user);
     }
@@ -32,17 +33,17 @@ public class UserController(IUserRepository userRepo) : Controller
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
-        var result = await _userRepo.AddUser(user);
-        if (result == null) return Conflict("User with the same email or username already exists.");
+        var _result = await _userRepo.AddUser(user);
+        if (_result == null) return Conflict("User with the same email or username already exists.");
 
-        return CreatedAtAction(nameof(GetbyId), new { id = result.Id }, result);
+        return CreatedAtAction(nameof(GetbyId), new { id = _result.Id }, _result);
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteUser(int id)
     {
-        var isDeleted = await _userRepo.DeleteUser(id);
-        if (!isDeleted) return NotFound();
+        var _isDeleted = await _userRepo.DeleteUser(id);
+        if (!_isDeleted) return NotFound();
         return NoContent();
     }
 }

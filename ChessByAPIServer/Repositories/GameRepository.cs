@@ -1,4 +1,5 @@
-﻿using ChessByAPIServer.Interfaces;
+﻿using ChessByAPIServer.Contexts;
+using ChessByAPIServer.Interfaces;
 using ChessByAPIServer.Models;
 using Microsoft.EntityFrameworkCore;
 using PlayerRole = ChessByAPIServer.Enum.PlayerRole;
@@ -7,7 +8,6 @@ namespace ChessByAPIServer.Repositories;
 
 public class GameRepository : IGameRepository
 {
-
     private readonly ChessBoardRepository _chessBoardRepository;
     private readonly ChessDbContext _context;
 
@@ -41,7 +41,7 @@ public class GameRepository : IGameRepository
         return await _context.Games.AnyAsync(g => g.Id == id);
     }
 
-    public async Task<Game> CreateGameAsync(int whitePlayerId, int blackPlayerId)
+    public async Task<Game?> CreateGameAsync(int whitePlayerId, int blackPlayerId)
     {
         try
         {
@@ -53,34 +53,27 @@ public class GameRepository : IGameRepository
         {
             // Handle validation errors here, e.g., log the error, return an appropriate response
             throw new InvalidOperationException(ex.Message); // or handle it in another way
+        } // Generate a new game ID
+
+        var gameGuid = Guid.NewGuid();
+        var whiteplayer = await _context.Users.FirstOrDefaultAsync(u => u != null && u.Id == whitePlayerId);
+        var
+            blackplayer =
+                await _context.Users.FirstOrDefaultAsync(u =>
+                    u != null &&
+                    u.Id == blackPlayerId); // Create a new game instance using object initialization
+        if (whiteplayer != null && blackplayer != null)
+        {
+            Game game = new(gameGuid, whiteplayer.Id, blackplayer.Id);
+            if (game == null) throw new ArgumentNullException(nameof(game)); // Add the new game to the context
+            _ = await _context.Games.AddAsync(game); // Save changes to the database
+            _ = await _context.SaveChangesAsync(); // Initialize the chessboard with the new game
+            await _chessBoardRepository.InitializeChessBoard(_context, gameGuid);
+            await _context.SaveChangesAsync(); // Return the newly created game
+            return game;
         }
 
-        // Generate a new game ID
-        var gameGuid = Guid.NewGuid();
-        var whiteplayer = await _context.Users.FirstOrDefaultAsync(u => u.Id == whitePlayerId);
-        var blackplayer = await _context.Users.FirstOrDefaultAsync(u => u.Id == blackPlayerId);
-        // Create a new game instance using object initialization
-        Game _game = new
-        (
-            gameGuid,
-            whiteplayer.Id,
-            blackplayer.Id
-        );
-
-        // Add the new game to the context
-        _ = await _context.Games.AddAsync(_game);
-
-        // Save changes to the database
-        _ = await _context.SaveChangesAsync();
-
-        // Initialize the chessboard with the new game ID
-        ChessBoardRepository boardRepository = new();
-        await boardRepository.InitializeChessBoard(_context, gameGuid);
-
-        await _context.SaveChangesAsync();
-
-        // Return the newly created game
-        return _game;
+        return null;
     }
 
     public async Task<List<Game>> GetGamesByPlayerIdAsync(int playerId, PlayerRole role = PlayerRole.All)
@@ -104,13 +97,13 @@ public class GameRepository : IGameRepository
     {
         // Check if the player exists
         var userExists = await _context.Users
-            .AnyAsync(u => u.Id == playerId);
+            .AnyAsync(u => u != null && u.Id == playerId);
 
         if (!userExists) throw new ArgumentException($"{playerRole} with ID {playerId} does not exist.");
 
         // Check if the user is deleted
         var isDeleted = await _context.Users
-            .AnyAsync(u => u.Id == playerId && u.IsDeleted);
+            .AnyAsync(u => u != null && u.Id == playerId && u.IsDeleted);
 
         if (isDeleted) throw new ArgumentException($"{playerRole} with ID {playerId} is deleted.");
     }
@@ -132,35 +125,48 @@ public class GameRepository : IGameRepository
         return positionsData;
     }
 
-    public async Task<bool> TakeMoveAsync(Game game, string startPosition, string endPosition, PlayerRole? playerRole)
+    public async Task<bool> TakeMoveAsync(Game game, string startPosition, string endPosition,
+        PlayerRole? playerRole)
     {
         var piece = await _chessBoardRepository.GetPieceAtPositionAsync(_context, game.Id, startPosition);
         if (piece == null) return false;
-        MoveValidationRepository _moveValidationRepo = new MoveValidationRepository(game, _chessBoardRepository, this);
-        bool validMove = await _moveValidationRepo.IsValidMove(piece, startPosition, endPosition, playerRole);
-        if (!validMove)
-        {
-            return false;
-        }
+        var moveRepo = new MoveRepository(game, _chessBoardRepository, this);
+        if (moveRepo == null) throw new ArgumentNullException(nameof(moveRepo));
+        var validMove = await moveRepo.IsValidMove(piece, startPosition, endPosition, playerRole);
+        if (!validMove) return false;
 
-        
-        PlayerRole? playerColor = await _chessBoardRepository.GetPieceColorAtPositionAsync(_context, game.Id, startPosition);
-        if (playerColor == null)
-        {
-            return false;
-        }
-        await _moveValidationRepo.AddMoveToDbAsync(startPosition, endPosition,playerColor.ToString());
+
+        var playerColor =
+            await _chessBoardRepository.GetPieceColorAtPositionAsync(_context, game.Id, startPosition);
+        if (playerColor == null) return false;
+
+        await moveRepo.AddMoveToDbAsync(startPosition, endPosition, playerColor.ToString());
         await _chessBoardRepository.UpdatePositionAsync(_context, game.Id, endPosition, piece, playerColor);
         await _chessBoardRepository.UpdatePositionAsync(_context, game.Id, startPosition);
-        
+
         return true;
     }
 
     public async Task<string?> GetPieceAtPosition(Game game, string position)
     {
-        
         var piece = await _chessBoardRepository.GetPieceAtPositionAsync(_context, game.Id, position);
         if (piece == null) return null;
         return piece;
+    }
+
+    public async Task<(bool isValid, string? errorMessage)> ValidateMoveAsync(Guid gameId, int playerId)
+    {
+        var game = await _context.Games.FindAsync(gameId);
+        if (game == null)
+            return (false,
+                "The specified game does not exist. Please create the game before making a move.");
+
+        if (game.EndTime != null)
+            return (false, "The game has already finished. You cannot make a move in a finished game.");
+
+        if (playerId != game.WhitePlayerId && playerId != game.BlackPlayerId)
+            return (false, "The player must be one of the participants in the game.");
+
+        return (true, null); // Validation passed
     }
 }

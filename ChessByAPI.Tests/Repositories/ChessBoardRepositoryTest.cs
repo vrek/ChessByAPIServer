@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using ChessByAPIServer.Models;
+﻿using ChessByAPIServer.Contexts;
+using ChessByAPIServer.Enum;
 using ChessByAPIServer.Repositories;
 using Microsoft.EntityFrameworkCore;
-using Xunit;
-using ChessByAPIServer;
-using ChessByAPIServer.Enum;
+
+namespace ChessByAPI.Tests.Repositories;
 
 public class ChessBoardRepositoryTests
 {
@@ -19,7 +15,7 @@ public class ChessBoardRepositoryTests
     {
         // Setup in-memory database
         var options = new DbContextOptionsBuilder<ChessDbContext>()
-            .UseInMemoryDatabase(databaseName: "ChessTestDb")
+            .UseInMemoryDatabase("ChessTestDb")
             .Options;
 
         _context = new ChessDbContext(options);
@@ -44,9 +40,10 @@ public class ChessBoardRepositoryTests
     }
 
     [Theory]
-    [InlineData("e4", "Knight",PlayerRole.White, false)]  // Adding a Knight to e4
-    [InlineData("d4", null,PlayerRole.White, true)]       // Clearing the piece at d4
-    public async Task UpdatePositionAsync_ShouldUpdateSpecificPosition(string position, string? newPiece, PlayerRole? color, bool expectedIsEmpty)
+    [InlineData("e4", "Knight", PlayerRole.White, false)] // Adding a Knight to e4
+    [InlineData("d4", null, PlayerRole.White, true)] // Clearing the piece at d4
+    public async Task UpdatePositionAsync_ShouldUpdateSpecificPosition(string position, string? newPiece,
+        PlayerRole? color, bool expectedIsEmpty)
     {
         // Act
         var updateResult = await _repository.UpdatePositionAsync(_context, _gameId, position, newPiece, color);
@@ -67,16 +64,18 @@ public class ChessBoardRepositoryTests
     public async Task UpdatePositionAsync_ShouldReturnFalseIfPositionNotFound()
     {
         // Arrange
-        string nonExistentPosition = "z9"; // Invalid position
+        var nonExistentPosition = "z9"; // Invalid position
 
         // Act
-        var result = await _repository.UpdatePositionAsync(_context, _gameId, nonExistentPosition, "Rook", PlayerRole.White);
+        var result =
+            await _repository.UpdatePositionAsync(_context, _gameId, nonExistentPosition, "Rook", PlayerRole.White);
 
         // Assert
         Assert.False(result); // Expect false as position does not exist
     }
 
     // Cleanup after each test
+    [Fact]
     public void Dispose()
     {
         _context.Database.EnsureDeleted();

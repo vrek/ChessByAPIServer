@@ -1,16 +1,18 @@
 ﻿using ChessByAPIServer;
+using ChessByAPIServer.Contexts;
 using ChessByAPIServer.Controllers;
 using ChessByAPIServer.DTOs;
 using ChessByAPIServer.Models;
+using ChessByAPIServer.Repositories;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 
-namespace ChessByAPI.Tests;
+namespace ChessByAPI.Tests.Repositories;
 
 public class UsersControllerTests
 {
-    private readonly DbContext _context;
+    private readonly ChessDbContext _context;
     private readonly UserController _controller;
     private readonly Mock<IUserRepository> _mockRepo;
 
@@ -22,11 +24,11 @@ public class UsersControllerTests
             .Options;
 
         _context = new ChessDbContext(options);
-        // Create a mock IUserRepository
+
         _mockRepo = new Mock<IUserRepository>();
 
         // Inject the mock into the controller
-        _controller = new UserController(_mockRepo.Object);
+        _controller = new UserController(_mockRepo.Object, _context);
     }
 
     public void Dispose()
@@ -157,7 +159,7 @@ public class UsersControllerTests
         _ = await _context.Users.AddAsync(user1);
         _ = await _context.Users.AddAsync(user2);
         _ = await _context.SaveChangesAsync();
-        Task<List<UserDTO>> users = userRepository.GetAll();
+        Task<List<UserDto>> users = userRepository.GetAll();
         var Expected = 2;
         var result = users.Result.Count();
         Assert.Equal(Expected, result);

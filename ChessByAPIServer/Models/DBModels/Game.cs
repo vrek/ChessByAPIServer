@@ -12,7 +12,7 @@ public class Game
         WhitePlayerId = whitePlayerId;
         BlackPlayerId = blackPlayerId;
         StartTime = DateTime.UtcNow; // If startTime is null, default to DateTime.UtcNow
-        EndTime = null; // EndTime can be null
+        EndTime = null;
         ChessPositions = new List<ChessPosition>(); // Initialize the collections
 
         GameMoves = new List<GameMove>();

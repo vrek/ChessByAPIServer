@@ -8,6 +8,7 @@ public interface IGameRepository
     Task<Game?> GetByIdAsync(Guid id);
 
     Task<bool> ExistsAsync(Guid id);
-    Task<Game> CreateGameAsync(int whitePlayerId, int blackPlayerId);
+    Task<Game?> CreateGameAsync(int whitePlayerId, int blackPlayerId);
     Task<List<Game>> GetGamesByPlayerIdAsync(int playerId, PlayerRole role = PlayerRole.All);
+    Task<(bool isValid, string? errorMessage)> ValidateMoveAsync(Guid gameId, int playerId);
 }

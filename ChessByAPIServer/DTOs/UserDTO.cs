@@ -3,7 +3,7 @@ using ChessByAPIServer.Models;
 
 namespace ChessByAPIServer.DTOs;
 
-public class UserDTO
+public class UserDto
 {
     [Key] public int Id { get; set; }
 

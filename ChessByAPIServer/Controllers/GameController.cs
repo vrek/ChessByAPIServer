@@ -1,4 +1,5 @@
-﻿using ChessByAPIServer.Interfaces;
+﻿using ChessByAPIServer.Enum;
+using ChessByAPIServer.Interfaces;
 using ChessByAPIServer.Models;
 using ChessByAPIServer.Models.APIModels;
 using ChessByAPIServer.Repositories;
@@ -25,12 +26,38 @@ public class GameController(
     [HttpGet("{id}")]
     public async Task<ActionResult<Game>> GetGame(Guid id)
     {
-        var game = await _gameRepository.GetByIdAsync(id);
+        var _game = await _gameRepository.GetByIdAsync(id);
 
-        if (game == null) return NotFound();
+        if (_game == null) return NotFound();
 
-        return Ok(game);
+        return Ok(_game);
     }
+
+    public async Task<PlayerRole> GetPlayerColor(Guid gameId, int playerId)
+    {
+        var _result = await GetGame(gameId);
+
+        if (_result is ActionResult<Game> actionResult && actionResult.Value is Game game)
+        {
+            if (playerId == game.WhitePlayerId)
+            {
+                return PlayerRole.White;
+            }
+            else if (playerId == game.BlackPlayerId)
+            {
+                return PlayerRole.Black;
+            }
+            else
+            {
+                throw new ArgumentException($"Player {playerId} is not a participant in the specified game", nameof(playerId));
+            }
+        }
+        else
+        {
+            throw new InvalidOperationException("Game not found or an error occurred.");
+        }
+    }
+
 
     // POST: api/Game/{whitePlayerId}/{blackPlayerId}
     [HttpPost("{whitePlayerId}/{blackPlayerId}")]
@@ -39,12 +66,12 @@ public class GameController(
         try
         {
             // Use the repository to create a new game
-            Game? createdGame = await _gameRepository.CreateGameAsync(whitePlayerId, blackPlayerId);
+            Game? _createdGame = await _gameRepository.CreateGameAsync(whitePlayerId, blackPlayerId);
 
             // Return the created game with a 201 Created response
-            if (createdGame != null)
+            if (_createdGame != null)
             {
-                return createdGame;
+                return _createdGame;
             }
             else
             {
@@ -67,21 +94,24 @@ public class GameController(
                 title: "Move not Specified",
                 detail: "The body of the move request can not be empty",
                 statusCode: StatusCodes.Status400BadRequest) as IActionResult;
-        var gameId = move.gameId;
-        var player = move.fromPlayerId;
-        var subMove = move.move;
-        var subTime = move.dateSubmitted;
+        var _gameId = move.gameId;
+        var _player = move.fromPlayerId;
+        var _subMove = move.move;
+        var _subTime = move.dateSubmitted;
 
-        var (isValid, errorMessage) = await _gameRepository.ValidateMoveAsync(gameId, player);
-        if (!isValid)
+        var (_isValid, _errorMessage) = await _gameRepository.ValidateMoveAsync(_gameId, _player);
+        if (!_isValid)
             return Results.Problem(
                     type: "Bad Request",
                     title: "Validation Error",
-                    detail: errorMessage,
+                    detail: _errorMessage,
                     statusCode: StatusCodes.Status400BadRequest)
                 as IActionResult;
 
+        ChessMove _chessMove = moveRepository.FromLongAlgebraicNotation(move.move);
+        PlayerRole _playerRole = await GetPlayerColor(_gameId, _player);
+        moveRepository.AddMoveToDbAsync(_chessMove.StartPosition, _chessMove.EndPosition, _playerRole);
 
-        return CreatedAtAction(nameof(GetGame), new { id = gameId }, subMove);
+        return CreatedAtAction(nameof(GetGame), new { id = _gameId }, _subMove);
     }
 }

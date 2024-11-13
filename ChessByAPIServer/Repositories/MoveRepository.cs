@@ -1,7 +1,9 @@
-﻿using ChessByAPIServer.Contexts;
+﻿using System.Text.RegularExpressions;
+using ChessByAPIServer.Contexts;
 using ChessByAPIServer.Enum;
 using ChessByAPIServer.Interfaces;
 using ChessByAPIServer.Models;
+using ChessByAPIServer.Models.APIModels;
 using Microsoft.EntityFrameworkCore;
 
 namespace ChessByAPIServer.Repositories;
@@ -21,27 +23,27 @@ public class MoveRepository : IMoveRepository
 
     public async Task<bool> IsValidMove(string piece, string start, string end, PlayerRole? playerColor = null)
     {
-        PlayerRole color;
+        PlayerRole _color;
         if (string.IsNullOrEmpty(piece))
             throw new ArgumentException("Piece type must not be null or empty.", nameof(piece));
         if (playerColor != null)
-            color = (PlayerRole)playerColor;
+            _color = (PlayerRole)playerColor;
         else
-            color = PlayerRole.All;
+            _color = PlayerRole.All;
 
-        var startColumn = start[0].ToString().ToLower();
+        var _startColumn = start[0].ToString().ToLower();
         var endColumn = end[0].ToString().ToLower();
         if (!int.TryParse(start[1].ToString(), out var startRow) || !int.TryParse(end[1].ToString(), out var endRow))
             return false; // Return false if parsing rows failed
-        if (!IsPositionValid(startColumn, startRow) || !IsPositionValid(endColumn, endRow)) return false;
+        if (!IsPositionValid(_startColumn, startRow) || !IsPositionValid(endColumn, endRow)) return false;
         return piece.ToLower() switch
         {
-            "pawn" => await IsPawnMoveValid(startColumn, startRow, endColumn, endRow, color),
-            "knight" => IsKnightMoveValid(startColumn, startRow, endColumn, endRow),
-            "bishop" => IsBishopMoveValid(startColumn, startRow, endColumn, endRow),
-            "rook" => IsRookMoveValid(startColumn, startRow, endColumn, endRow),
-            "queen" => IsQueenMoveValid(startColumn, startRow, endColumn, endRow),
-            "king" => IsKingMoveValid(startColumn, startRow, endColumn, endRow),
+            "pawn" => await IsPawnMoveValid(_startColumn, startRow, endColumn, endRow, _color),
+            "knight" => IsKnightMoveValid(_startColumn, startRow, endColumn, endRow),
+            "bishop" => IsBishopMoveValid(_startColumn, startRow, endColumn, endRow),
+            "rook" => IsRookMoveValid(_startColumn, startRow, endColumn, endRow),
+            "queen" => IsQueenMoveValid(_startColumn, startRow, endColumn, endRow),
+            "king" => IsKingMoveValid(_startColumn, startRow, endColumn, endRow),
             _ => throw new ArgumentException("Invalid piece type", nameof(piece))
         };
     }
@@ -227,17 +229,18 @@ public class MoveRepository : IMoveRepository
         await _board.UpdatePositionAsync(_gameRepository.GetChessDbContext(), _game.Id, square, pieceType, color);
     }
 
-    public async Task AddMoveToDbAsync(string startPosition, string endPosition, string? color)
+    public async Task AddMoveToDbAsync(string startPosition, string endPosition, PlayerRole color)
     {
         var context = _gameRepository.GetChessDbContext();
         var gameMove = new GameMove();
         var piece = await _board.GetPieceAtPositionAsync(context, _game.Id, startPosition) ?? string.Empty;
         gameMove.GameGuid = _game.Id;
         gameMove.MoveNumber = await GetMostRecentMoveNumberAsync(context, _game.Id) + 1;
-        gameMove.MoveNotation = await GetLongAlgebraicNotationAsync(context, piece, startPosition, endPosition, color);
+        gameMove.MoveNotation = await GetLongAlgebraicNotationAsync(context, piece, startPosition, endPosition, color.ToString());
         context.GameMoves.Add(gameMove);
         await context.SaveChangesAsync();
     }
+    
 
     public async Task<string> GetLongAlgebraicNotationAsync(
         ChessDbContext context,
@@ -291,4 +294,56 @@ public class MoveRepository : IMoveRepository
         // Check if the move is diagonal
         return Math.Abs(startColNum - endColNum) == Math.Abs(startRow - endRow);
     }
-}
+    
+        public ChessMove FromLongAlgebraicNotation(string notation)
+        {
+            var chessMove = new ChessMove();
+            notation = notation.Trim();
+
+            // Define a regex to parse long algebraic notation
+            // Example pattern breakdown:
+            // ^([NBRQK]?) - optional piece symbol (e.g., "N" for Knight)
+            // ([a-h]?) - optional starting file for disambiguation
+            // ([1-8]?) - optional starting rank for disambiguation
+            // (x?) - optional capture indicator
+            // ([a-h][1-8]) - mandatory destination square
+            var regex = new Regex(@"^([NBRQK]?)([a-h]?)([1-8]?)(x?)([a-h][1-8])$");
+
+            var match = regex.Match(notation);
+            if (!match.Success)
+            {
+                throw new ArgumentException("Invalid long algebraic notation", nameof(notation));
+            }
+
+            // Extract piece, starting position (if specified), capture status, and end position
+            var pieceSymbol = match.Groups[1].Value;
+            var startFile = match.Groups[2].Value;
+            var startRank = match.Groups[3].Value;
+            var captureSymbol = match.Groups[4].Value;
+            var endPosition = match.Groups[5].Value;
+
+            // Set piece type based on the symbol
+            chessMove.Piece = pieceSymbol switch
+            {
+                "N" => Guid.NewGuid(), // Replace with actual Knight piece GUID if available
+                "B" => Guid.NewGuid(), // Bishop
+                "R" => Guid.NewGuid(), // Rook
+                "Q" => Guid.NewGuid(), // Queen
+                "K" => Guid.NewGuid(), // King
+                _ => Guid.NewGuid() // Pawn (no symbol in long algebraic notation)
+            };
+
+            // Set capture status
+            chessMove.IsCapture = captureSymbol == "x";
+
+            // Set end position
+            chessMove.EndPosition = endPosition;
+
+            // Set start position if specified (for disambiguation purposes)
+            chessMove.StartPosition = !string.IsNullOrEmpty(startFile) || !string.IsNullOrEmpty(startRank)
+                ? $"{startFile}{startRank}"
+                : null; // null if no start position specified
+
+            return chessMove;
+        }
+    }

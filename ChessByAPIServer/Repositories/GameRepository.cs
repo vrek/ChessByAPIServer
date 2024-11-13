@@ -126,22 +126,19 @@ public class GameRepository : IGameRepository
     }
 
     public async Task<bool> TakeMoveAsync(Game game, string startPosition, string endPosition,
-        PlayerRole? playerRole)
+        PlayerRole playerRole)
     {
-        var piece = await _chessBoardRepository.GetPieceAtPositionAsync(_context, game.Id, startPosition);
-        if (piece == null) return false;
-        var moveRepo = new MoveRepository(game, _chessBoardRepository, this);
-        if (moveRepo == null) throw new ArgumentNullException(nameof(moveRepo));
-        var validMove = await moveRepo.IsValidMove(piece, startPosition, endPosition, playerRole);
-        if (!validMove) return false;
+        var _piece = await _chessBoardRepository.GetPieceAtPositionAsync(_context, game.Id, startPosition);
+        if (_piece == null) return false;
+        var _moveRepo = new MoveRepository(game, _chessBoardRepository, this);
+        if (_moveRepo == null) throw new ArgumentNullException(nameof(_moveRepo));
+        var _validMove = await _moveRepo.IsValidMove(_piece, startPosition, endPosition, playerRole);
+        if (!_validMove) return false;
 
 
-        var playerColor =
-            await _chessBoardRepository.GetPieceColorAtPositionAsync(_context, game.Id, startPosition);
-        if (playerColor == null) return false;
-
-        await moveRepo.AddMoveToDbAsync(startPosition, endPosition, playerColor.ToString());
-        await _chessBoardRepository.UpdatePositionAsync(_context, game.Id, endPosition, piece, playerColor);
+        
+        await _moveRepo.AddMoveToDbAsync(startPosition, endPosition, playerRole);
+        await _chessBoardRepository.UpdatePositionAsync(_context, game.Id, endPosition, _piece, playerRole);
         await _chessBoardRepository.UpdatePositionAsync(_context, game.Id, startPosition);
 
         return true;

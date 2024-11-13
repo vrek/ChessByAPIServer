@@ -1,6 +1,7 @@
 ﻿using ChessByAPIServer.Enum;
+using ChessByAPIServer.Models.APIModels;
 
-namespace ChessByAPIServer.Repositories;
+namespace ChessByAPIServer.Interfaces;
 
 public interface IMoveRepository
 {
@@ -16,4 +17,6 @@ public interface IMoveRepository
     bool IsInCheck(string position);
     bool IsInCheckMate(string position);
     bool IsInStalemate();
+    Task AddMoveToDbAsync(string startPosition, string endPosition, PlayerRole color);
+    ChessMove FromLongAlgebraicNotation(string notation);
 }

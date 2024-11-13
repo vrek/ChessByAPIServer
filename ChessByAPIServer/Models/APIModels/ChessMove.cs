@@ -2,8 +2,8 @@
 
 public class ChessMove
 {
-    public Guid piece { get; set; }
-    public string startPosition { get; set; }
-    public string endPosition { get; set; }
-    public bool isCapture { get; set; }
+    public Guid Piece { get; set; }
+    public string StartPosition { get; set; }
+    public string EndPosition { get; set; }
+    public bool IsCapture { get; set; }
 }
